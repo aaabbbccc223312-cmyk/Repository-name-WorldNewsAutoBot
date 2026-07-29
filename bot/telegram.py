@@ -1,16 +1,23 @@
 """
 bot/telegram.py
 
-Handles sending messages to Telegram channels.
+Professional Telegram sender.
+
+Supports:
+- Text messages
+- Photo messages
+- Multiple channels
+- Automatic retry
 """
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Iterable
 
 from telegram import Bot
 from telegram.constants import ParseMode
-from telegram.error import TelegramError, RetryAfter, TimedOut
+from telegram.error import RetryAfter, TimedOut, TelegramError
 
 from config import BOT_TOKEN, CHANNELS
 
@@ -18,92 +25,130 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramSender:
-    def __init__(self):
-        self.bot = Bot(token=BOT_TOKEN)
 
-    async def send_message(
+    def __init__(self):
+        self.bot = Bot(BOT_TOKEN)
+
+    async def send_text(
         self,
         chat_id: str,
         text: str,
-        disable_web_preview: bool = False
+        disable_preview: bool = True,
     ) -> bool:
-        """
-        Send one message to one Telegram channel.
-        """
 
         try:
+
             await self.bot.send_message(
                 chat_id=chat_id,
                 text=text,
                 parse_mode=ParseMode.HTML,
-                disable_web_page_preview=disable_web_preview,
+                disable_web_page_preview=disable_preview,
             )
 
-            logger.info(f"✓ Sent message to {chat_id}")
+            logger.info(f"Text sent -> {chat_id}")
             return True
 
         except RetryAfter as e:
-            logger.warning(
-                f"Rate limited by Telegram. Retrying in {e.retry_after} seconds..."
-            )
+
+            logger.warning(f"Retry after {e.retry_after}s")
             await asyncio.sleep(e.retry_after)
 
-            return await self.send_message(
+            return await self.send_text(
                 chat_id,
                 text,
-                disable_web_preview,
+                disable_preview,
             )
 
         except TimedOut:
-            logger.warning(f"Timeout sending to {chat_id}")
+
+            logger.warning("Telegram timeout.")
 
         except TelegramError as e:
-            logger.error(f"Telegram error for {chat_id}: {e}")
+
+            logger.error(e)
 
         except Exception as e:
+
             logger.exception(e)
 
         return False
 
-    async def broadcast(
+    async def send_photo(
+        self,
+        chat_id: str,
+        photo_path: str,
+        caption: str = "",
+    ) -> bool:
+
+        try:
+
+            with open(photo_path, "rb") as photo:
+
+                await self.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                )
+
+            logger.info(f"Photo sent -> {chat_id}")
+
+            return True
+
+        except RetryAfter as e:
+
+            await asyncio.sleep(e.retry_after)
+
+            return await self.send_photo(
+                chat_id,
+                photo_path,
+                caption,
+            )
+
+        except Exception as e:
+
+            logger.exception(e)
+
+        return False
+
+    async def broadcast_text(
         self,
         text: str,
-        channels: Iterable[str] | None = None,
-        disable_web_preview: bool = False,
-    ) -> dict:
-        """
-        Send the same message to all configured channels.
-
-        Returns:
-            {
-                "@paisabase1": True,
-                "@aatgpay": True,
-                "@smrtwallet": False
-            }
-        """
-
-        if channels is None:
-            channels = CHANNELS
+        channels: Iterable[str] = CHANNELS,
+    ):
 
         results = {}
 
         for channel in channels:
-            success = await self.send_message(
-                chat_id=channel,
-                text=text,
-                disable_web_preview=disable_web_preview,
-            )
 
-            results[channel] = success
+            results[channel] = await self.send_text(
+                channel,
+                text,
+            )
 
         return results
 
-    async def close(self):
-        """
-        Close the HTTP session cleanly.
-        """
+    async def broadcast_photo(
+        self,
+        photo_path: str,
+        caption: str,
+        channels: Iterable[str] = CHANNELS,
+    ):
 
-        await self.bot.session.close()
+        if not Path(photo_path).exists():
+            raise FileNotFoundError(photo_path)
+
+        results = {}
+
+        for channel in channels:
+
+            results[channel] = await self.send_photo(
+                channel,
+                photo_path,
+                caption,
+            )
+
+        return results
 
 
-telegram_sender = TelegramSender()
+telegram = TelegramSender()
