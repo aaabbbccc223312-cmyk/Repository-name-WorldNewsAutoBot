@@ -1,3 +1,3 @@
-from .telegram import telegram_sender
+from .telegram import telegram
 
-__all__ = ["telegram_sender"]
+__all__ = ["telegram"]
