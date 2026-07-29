@@ -15,7 +15,4 @@ CHANNELS = [
 
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "60"))
 
-DATABASE_PATH = os.getenv(
-    "DATABASE_PATH",
-    "database/news.db"
-)
+DATABASE_PATH = os.getenv("DATABASE_PATH", "news.db")
