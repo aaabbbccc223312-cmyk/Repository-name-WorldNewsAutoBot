@@ -1,52 +1,30 @@
-import asyncio
-import logging
-
-from database import init_db
-from bot.telegram import telegram
-from source_manager import check_all_sources
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
 )
 
+from config import BOT_TOKEN
+from bot.handlers import start, check_join
 
-async def main():
 
-    logging.info("Starting GlobalPulseBot...")
+def main():
 
-    await init_db()
+    app = Application.builder().token(BOT_TOKEN).build()
 
-    while True:
+    app.add_handler(CommandHandler("start", start))
 
-        try:
+    app.add_handler(
+        CallbackQueryHandler(
+            check_join,
+            pattern="^check_join$",
+        )
+    )
 
-            articles = await check_all_sources()
+    print("✅ Force Join Bot Started")
 
-            for article in articles:
-
-                message = f"""
-🌍 <b>GLOBAL PULSE</b>
-
-🚨 <b>{article['category']}</b>
-
-📰 <b>{article['title']}</b>
-
-📝 {article['summary']}
-
-📍 <b>Source:</b> {article['source']}
-
-🔗 {article['url']}
-"""
-
-                await telegram.broadcast_text(message)
-
-        except Exception as e:
-            logging.exception(e)
-
-        await asyncio.sleep(60)
+    app.run_polling()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
