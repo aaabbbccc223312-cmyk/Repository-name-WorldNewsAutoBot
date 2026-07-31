@@ -9,27 +9,29 @@ from config import (
     WELCOME_MESSAGE,
 )
 
+from database import save_user
 from bot.keyboards import join_keyboard
 from bot.membership import get_missing_channels
-from database import save_user
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    /start command
-    """
+# ==========================================================
+# /start
+# ==========================================================
+
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
 
     if update.message is None:
         return
 
-    user = update.effective_user
-
     # Save user
-    await save_user(user)
+    await save_user(update.effective_user)
 
     keyboard = await join_keyboard()
 
-    # Send welcome image if it exists
+    # Send welcome image if available
     if os.path.isfile(WELCOME_IMAGE):
 
         with open(WELCOME_IMAGE, "rb") as photo:
@@ -51,10 +53,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-async def check_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Verify user joined all required channels.
-    """
+# ==========================================================
+# VERIFY JOIN
+# ==========================================================
+
+async def check_join(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
 
     query = update.callback_query
 
@@ -63,22 +69,32 @@ async def check_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.answer()
 
-    missing = await get_missing_channels(update, context.bot)
+    missing = await get_missing_channels(
+        update,
+        context.bot,
+    )
 
-    # User has not joined every channel
+    # ------------------------------------------------------
+    # USER HAS NOT JOINED EVERY CHANNEL
+    # ------------------------------------------------------
+
     if missing:
 
         keyboard = await join_keyboard()
 
         text = (
             "❌ <b>You haven't joined all required channels.</b>\n\n"
-            "Please join every channel below before using this bot.\n\n"
+            "Please join every channel below before continuing.\n\n"
         )
 
         for channel in missing:
+
             text += f"• {channel}\n"
 
-        text += "\nAfter joining, press <b>✅ I've Joined</b> again."
+        text += (
+            "\nAfter joining them all, press\n"
+            "<b>✅ I've Joined</b> again."
+        )
 
         try:
 
@@ -99,26 +115,29 @@ async def check_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    # Save user again
+    # ------------------------------------------------------
+    # USER VERIFIED
+    # ------------------------------------------------------
+
     await save_user(update.effective_user)
 
-    success_text = (
+    success = (
         "🎉 <b>Verification Successful!</b>\n\n"
-        "✅ Thank you for joining all our required channels.\n\n"
-        "You now have full access to this bot.\n\n"
-        "Enjoy using AATG ❤️"
+        "✅ Thank you for joining all required channels.\n\n"
+        "Welcome to <b>AATG</b> ❤️\n\n"
+        "You now have full access to the bot."
     )
 
     try:
 
         await query.edit_message_caption(
-            caption=success_text,
+            caption=success,
             parse_mode=ParseMode.HTML,
         )
 
     except Exception:
 
         await query.edit_message_text(
-            text=success_text,
+            text=success,
             parse_mode=ParseMode.HTML,
         )
