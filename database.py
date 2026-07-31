@@ -1,225 +1,248 @@
 import os
 import aiosqlite
-
 from config import DATABASE_PATH
-
-
-# ==========================================
-# Ensure database folder exists
-# ==========================================
 
 os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
 
 
-# ==========================================
-# Database Initialization
-# ==========================================
+class Database:
+
+    def __init__(self):
+        self.db_path = DATABASE_PATH
+
+    async def connect(self):
+        return await aiosqlite.connect(self.db_path)
+
+    async def init(self):
+
+        async with await self.connect() as db:
+
+            # Users
+            await db.execute("""
+            CREATE TABLE IF NOT EXISTS users(
+                user_id INTEGER PRIMARY KEY,
+                username TEXT,
+                first_name TEXT,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+
+            # Channels
+            await db.execute("""
+            CREATE TABLE IF NOT EXISTS channels(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE,
+                enabled INTEGER DEFAULT 1,
+                category TEXT DEFAULT 'general',
+                rss_feed TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+
+            # Posted Articles
+            await db.execute("""
+            CREATE TABLE IF NOT EXISTS posted_news(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel_id INTEGER,
+                article_id TEXT,
+                posted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(channel_id, article_id)
+            )
+            """)
+
+            # Settings
+            await db.execute("""
+            CREATE TABLE IF NOT EXISTS settings(
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+            """)
+
+            await db.commit()
+
+    # ---------------------------------------------------
+    # USERS
+    # ---------------------------------------------------
+
+    async def save_user(self, user):
+
+        async with await self.connect() as db:
+
+            await db.execute("""
+            INSERT OR IGNORE INTO users(
+                user_id,
+                username,
+                first_name
+            )
+            VALUES(?,?,?)
+            """, (
+                user.id,
+                user.username,
+                user.first_name,
+            ))
 
-async def init_db():
+            await db.commit()
+
+    async def total_users(self):
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with await self.connect() as db:
 
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS users(
-            user_id INTEGER PRIMARY KEY,
-            username TEXT,
-            first_name TEXT,
-            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """)
+            cur = await db.execute(
+                "SELECT COUNT(*) FROM users"
+            )
 
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS channels(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            enabled INTEGER DEFAULT 1,
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """)
+            row = await cur.fetchone()
 
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS posted_news(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            channel TEXT,
-            article_id TEXT,
-            posted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(channel, article_id)
-        )
-        """)
+            return row[0]
 
-        await db.commit()
+    # ---------------------------------------------------
+    # CHANNELS
+    # ---------------------------------------------------
 
+    async def add_channel(
+        self,
+        username,
+        category="general",
+        rss_feed="",
+    ):
 
-# ==========================================
-# USERS
-# ==========================================
+        async with await self.connect() as db:
 
-async def save_user(user):
+            await db.execute("""
+            INSERT OR IGNORE INTO channels(
+                username,
+                category,
+                rss_feed
+            )
+            VALUES(?,?,?)
+            """, (
+                username,
+                category,
+                rss_feed,
+            ))
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+            await db.commit()
 
-        await db.execute("""
-        INSERT OR IGNORE INTO users(
-            user_id,
-            username,
-            first_name
-        )
-        VALUES(?,?,?)
-        """, (
-            user.id,
-            user.username,
-            user.first_name,
-        ))
+    async def remove_channel(self, username):
 
-        await db.commit()
+        async with await self.connect() as db:
 
+            await db.execute(
+                "DELETE FROM channels WHERE username=?",
+                (username,),
+            )
 
-async def total_users():
+            await db.commit()
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async def pause_channel(self, username):
 
-        cursor = await db.execute(
-            "SELECT COUNT(*) FROM users"
-        )
+        async with await self.connect() as db:
 
-        row = await cursor.fetchone()
+            await db.execute(
+                "UPDATE channels SET enabled=0 WHERE username=?",
+                (username,),
+            )
 
-        return row[0]
+            await db.commit()
 
+    async def resume_channel(self, username):
 
-# ==========================================
-# CHANNELS
-# ==========================================
+        async with await self.connect() as db:
 
-async def add_channel(username):
+            await db.execute(
+                "UPDATE channels SET enabled=1 WHERE username=?",
+                (username,),
+            )
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+            await db.commit()
 
-        await db.execute("""
-        INSERT OR IGNORE INTO channels(username)
-        VALUES(?)
-        """, (username,))
+    async def get_channels(self):
 
-        await db.commit()
+        async with await self.connect() as db:
 
+            cur = await db.execute("""
+            SELECT
+                id,
+                username,
+                category,
+                rss_feed
+            FROM channels
+            WHERE enabled=1
+            ORDER BY id
+            """)
 
-async def remove_channel(username):
+            rows = await cur.fetchall()
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+            return rows
 
-        await db.execute(
-            "DELETE FROM channels WHERE username=?",
-            (username,),
-        )
+    async def total_channels(self):
 
-        await db.commit()
+        async with await self.connect() as db:
 
+            cur = await db.execute(
+                "SELECT COUNT(*) FROM channels WHERE enabled=1"
+            )
 
-async def pause_channel(username):
+            row = await cur.fetchone()
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+            return row[0]
 
-        await db.execute(
-            "UPDATE channels SET enabled=0 WHERE username=?",
-            (username,),
-        )
+    # ---------------------------------------------------
+    # POSTED ARTICLES
+    # ---------------------------------------------------
 
-        await db.commit()
+    async def has_posted(
+        self,
+        channel_id,
+        article_id,
+    ):
 
+        async with await self.connect() as db:
 
-async def resume_channel(username):
+            cur = await db.execute("""
+            SELECT id
+            FROM posted_news
+            WHERE channel_id=?
+            AND article_id=?
+            """, (
+                channel_id,
+                article_id,
+            ))
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+            return await cur.fetchone() is not None
 
-        await db.execute(
-            "UPDATE channels SET enabled=1 WHERE username=?",
-            (username,),
-        )
+    async def save_post(
+        self,
+        channel_id,
+        article_id,
+    ):
 
-        await db.commit()
+        async with await self.connect() as db:
 
+            await db.execute("""
+            INSERT OR IGNORE INTO posted_news(
+                channel_id,
+                article_id
+            )
+            VALUES(?,?)
+            """, (
+                channel_id,
+                article_id,
+            ))
 
-async def get_channels():
+            await db.commit()
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async def total_posts(self):
 
-        cursor = await db.execute("""
-        SELECT username
-        FROM channels
-        WHERE enabled=1
-        ORDER BY id
-        """)
+        async with await self.connect() as db:
 
-        rows = await cursor.fetchall()
+            cur = await db.execute(
+                "SELECT COUNT(*) FROM posted_news"
+            )
 
-        return [row[0] for row in rows]
+            row = await cur.fetchone()
 
+            return row[0]
 
-# ==========================================
-# POSTED ARTICLES
-# ==========================================
 
-async def has_posted(channel, article_id):
-
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-
-        cursor = await db.execute("""
-        SELECT 1
-        FROM posted_news
-        WHERE channel=?
-        AND article_id=?
-        LIMIT 1
-        """, (
-            channel,
-            article_id,
-        ))
-
-        return await cursor.fetchone() is not None
-
-
-async def save_post(channel, article_id):
-
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-
-        await db.execute("""
-        INSERT OR IGNORE INTO posted_news(
-            channel,
-            article_id
-        )
-        VALUES(?,?)
-        """, (
-            channel,
-            article_id,
-        ))
-
-        await db.commit()
-
-
-# ==========================================
-# STATISTICS
-# ==========================================
-
-async def total_channels():
-
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-
-        cursor = await db.execute(
-            "SELECT COUNT(*) FROM channels WHERE enabled=1"
-        )
-
-        row = await cursor.fetchone()
-
-        return row[0]
-
-
-async def total_posts():
-
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-
-        cursor = await db.execute(
-            "SELECT COUNT(*) FROM posted_news"
-        )
-
-        row = await cursor.fetchone()
-
-        return row[0]
+db = Database()
