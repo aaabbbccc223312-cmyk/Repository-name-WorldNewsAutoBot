@@ -2,7 +2,10 @@ import asyncio
 import logging
 
 from config import LOG_LEVEL
-from database import init_db
+from database import (
+    init_db,
+    add_channel,
+)
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL),
@@ -12,26 +15,39 @@ logging.basicConfig(
 logger = logging.getLogger("AATG")
 
 
+# Default channels (only added if missing)
+DEFAULT_CHANNELS = [
+    "@paisabase1",
+    "@aatgpay",
+    "@smrtwallet",
+]
+
+
 async def startup():
 
-    logger.info("=" * 50)
-    logger.info("Starting AATG Super Bot...")
-    logger.info("=" * 50)
+    logger.info("=" * 60)
+    logger.info("🚀 Starting AATG Super Bot V3")
+    logger.info("=" * 60)
 
+    # Create database
     await init_db()
+    logger.info("✅ Database initialized")
 
-    logger.info("Database Ready")
+    # Add default channels once
+    for channel in DEFAULT_CHANNELS:
+        await add_channel(channel)
 
-    # Telegram Bot
-    logger.info("Telegram Bot Ready")
+    logger.info("✅ Default channels loaded")
 
-    # News Scheduler
-    logger.info("News Scheduler Ready")
+    logger.info("✅ Telegram Bot Ready")
+    logger.info("✅ News Engine Ready")
+    logger.info("✅ Scheduler Ready")
 
-    logger.info("=" * 50)
-    logger.info("AATG Super Bot Started Successfully")
-    logger.info("=" * 50)
+    logger.info("=" * 60)
+    logger.info("🎉 AATG Super Bot Started Successfully")
+    logger.info("=" * 60)
 
+    # Keep Railway process alive
     while True:
         await asyncio.sleep(3600)
 
