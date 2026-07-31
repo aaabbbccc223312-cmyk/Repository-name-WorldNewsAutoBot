@@ -1,25 +1,33 @@
 """
 bot/telegram.py
 
-Professional Telegram sender.
+Professional Telegram Sender
 
-Supports:
-- Text messages
-- Photo messages
-- Multiple channels
-- Automatic retry
+Features
+--------
+✅ Send text
+✅ Send photos from URL
+✅ Send local photos
+✅ Auto fallback image
+✅ HTML formatting
+✅ Retry on FloodWait
+✅ Dynamic channels
 """
 
 import asyncio
 import logging
-from pathlib import Path
-from typing import Iterable
+import os
+
+import aiohttp
 
 from telegram import Bot
 from telegram.constants import ParseMode
 from telegram.error import RetryAfter, TimedOut, TelegramError
 
-from config import BOT_TOKEN, CHANNELS
+from config import (
+    BOT_TOKEN,
+    DEFAULT_NEWS_IMAGE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,39 +37,32 @@ class TelegramSender:
     def __init__(self):
         self.bot = Bot(BOT_TOKEN)
 
-    async def send_text(
-        self,
-        chat_id: str,
-        text: str,
-        disable_preview: bool = True,
-    ) -> bool:
+    # --------------------------------------------------
+    # TEXT
+    # --------------------------------------------------
+
+    async def send_text(self, channel: str, text: str):
 
         try:
 
             await self.bot.send_message(
-                chat_id=chat_id,
+                chat_id=channel,
                 text=text,
                 parse_mode=ParseMode.HTML,
-                disable_web_page_preview=disable_preview,
+                disable_web_page_preview=False,
             )
 
-            logger.info(f"Text sent -> {chat_id}")
+            logger.info(f"Sent text -> {channel}")
             return True
 
         except RetryAfter as e:
 
-            logger.warning(f"Retry after {e.retry_after}s")
             await asyncio.sleep(e.retry_after)
-
-            return await self.send_text(
-                chat_id,
-                text,
-                disable_preview,
-            )
+            return await self.send_text(channel, text)
 
         except TimedOut:
 
-            logger.warning("Telegram timeout.")
+            logger.warning("Telegram Timeout")
 
         except TelegramError as e:
 
@@ -73,37 +74,30 @@ class TelegramSender:
 
         return False
 
-    async def send_photo(
-        self,
-        chat_id: str,
-        photo_path: str,
-        caption: str = "",
-    ) -> bool:
+    # --------------------------------------------------
+    # LOCAL PHOTO
+    # --------------------------------------------------
+
+    async def send_photo(self, channel: str, photo_path: str, caption: str):
 
         try:
 
             with open(photo_path, "rb") as photo:
 
                 await self.bot.send_photo(
-                    chat_id=chat_id,
+                    chat_id=channel,
                     photo=photo,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
                 )
 
-            logger.info(f"Photo sent -> {chat_id}")
-
+            logger.info(f"Sent photo -> {channel}")
             return True
 
         except RetryAfter as e:
 
             await asyncio.sleep(e.retry_after)
-
-            return await self.send_photo(
-                chat_id,
-                photo_path,
-                caption,
-            )
+            return await self.send_photo(channel, photo_path, caption)
 
         except Exception as e:
 
@@ -111,44 +105,73 @@ class TelegramSender:
 
         return False
 
-    async def broadcast_text(
+    # --------------------------------------------------
+    # PHOTO FROM URL
+    # --------------------------------------------------
+
+    async def send_photo_url(
         self,
-        text: str,
-        channels: Iterable[str] = CHANNELS,
-    ):
-
-        results = {}
-
-        for channel in channels:
-
-            results[channel] = await self.send_text(
-                channel,
-                text,
-            )
-
-        return results
-
-    async def broadcast_photo(
-        self,
-        photo_path: str,
+        channel: str,
+        image_url: str,
         caption: str,
-        channels: Iterable[str] = CHANNELS,
     ):
 
-        if not Path(photo_path).exists():
-            raise FileNotFoundError(photo_path)
+        try:
 
-        results = {}
+            async with aiohttp.ClientSession() as session:
 
-        for channel in channels:
+                async with session.get(image_url) as response:
 
-            results[channel] = await self.send_photo(
+                    if response.status != 200:
+                        return await self.send_default_photo(
+                            channel,
+                            caption,
+                        )
+
+                    image = await response.read()
+
+                    await self.bot.send_photo(
+                        chat_id=channel,
+                        photo=image,
+                        caption=caption,
+                        parse_mode=ParseMode.HTML,
+                    )
+
+            logger.info(f"Image sent -> {channel}")
+
+            return True
+
+        except Exception as e:
+
+            logger.warning(e)
+
+            return await self.send_default_photo(
                 channel,
-                photo_path,
                 caption,
             )
 
-        return results
+    # --------------------------------------------------
+    # DEFAULT IMAGE
+    # --------------------------------------------------
+
+    async def send_default_photo(
+        self,
+        channel,
+        caption,
+    ):
+
+        if os.path.exists(DEFAULT_NEWS_IMAGE):
+
+            return await self.send_photo(
+                channel,
+                DEFAULT_NEWS_IMAGE,
+                caption,
+            )
+
+        return await self.send_text(
+            channel,
+            caption,
+        )
 
 
 telegram = TelegramSender()
