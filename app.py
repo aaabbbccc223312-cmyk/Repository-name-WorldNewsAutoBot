@@ -1,30 +1,25 @@
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
+import asyncio
+import logging
+
+from database import init_db
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
 )
 
-from config import BOT_TOKEN
-from bot.handlers import start, check_join
 
+async def main():
 
-def main():
+    logging.info("Starting AATG Super Bot...")
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    await init_db()
 
-    app.add_handler(CommandHandler("start", start))
+    logging.info("Database initialized successfully.")
 
-    app.add_handler(
-        CallbackQueryHandler(
-            check_join,
-            pattern="^check_join$",
-        )
-    )
-
-    print("✅ Force Join Bot Started")
-
-    app.run_polling()
+    # Telegram bot starts here
+    # News scheduler starts here
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
