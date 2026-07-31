@@ -1,16 +1,25 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from config import CHANNELS
+
+from database import get_channels
 
 
-def join_keyboard():
+async def join_keyboard():
+    """
+    Build the Force Join keyboard dynamically from the database.
+    """
+
     keyboard = []
 
-    for i, channel in enumerate(CHANNELS, start=1):
+    channels = await get_channels()
+
+    for channel in channels:
+        username = channel.replace("@", "")
+
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text=f"📢 Join Channel {i}",
-                    url=f"https://t.me/{channel.replace('@', '')}",
+                    text=f"📢 {channel}",
+                    url=f"https://t.me/{username}",
                 )
             ]
         )
@@ -19,7 +28,7 @@ def join_keyboard():
         [
             InlineKeyboardButton(
                 text="✅ I've Joined",
-                callback_data="check_join",
+                callback_data="verify_join",
             )
         ]
     )
