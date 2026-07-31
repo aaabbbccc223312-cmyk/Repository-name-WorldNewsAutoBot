@@ -3,81 +3,85 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# =========================
-# Telegram
-# =========================
+# ===========================
+# BOT
+# ===========================
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
-# =========================
-# Channels
-# Add or remove channels here.
-# Example:
-# CHANNELS=@paisabase1,@aatgpay,@smrtwallet,@newchannel
-# =========================
+# ===========================
+# DATABASE
+# ===========================
 
-CHANNELS = [
-    c.strip()
-    for c in os.getenv("CHANNELS", "").split(",")
-    if c.strip()
-]
-
-# =========================
-# News
-# =========================
-
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "60"))
-
-RSS_FEEDS = [
-
-    # BBC
-    "https://feeds.bbci.co.uk/news/world/rss.xml",
-    "https://feeds.bbci.co.uk/news/business/rss.xml",
-    "https://feeds.bbci.co.uk/news/technology/rss.xml",
-
-    # CNN
-    "https://rss.cnn.com/rss/edition_world.rss",
-
-    # Reuters
-    "https://feeds.reuters.com/reuters/worldNews",
-
-    # Al Jazeera
-    "https://www.aljazeera.com/xml/rss/all.xml",
-
-    # CNBC
-    "https://www.cnbc.com/id/100003114/device/rss/rss.html",
-
-    # TechCrunch
-    "https://techcrunch.com/feed/",
-
-]
-
-# =========================
-# Database
-# =========================
-
-DATA_FOLDER = "data"
-
-DATABASE_PATH = os.path.join(
-    DATA_FOLDER,
-    "aatg_super_bot.db",
+DATABASE_PATH = os.getenv(
+    "DATABASE_PATH",
+    "data/bot.db",
 )
 
-# =========================
-# Images
-# =========================
+# ===========================
+# IMAGES
+# ===========================
 
-IMAGE_FOLDER = "images/assets"
+WELCOME_IMAGE = os.getenv(
+    "WELCOME_IMAGE",
+    "assets/welcome.jpg",
+)
 
-DEFAULT_WORLD_IMAGE = "images/assets/world.jpg"
-DEFAULT_TECH_IMAGE = "images/assets/technology.jpg"
-DEFAULT_BUSINESS_IMAGE = "images/assets/business.jpg"
-DEFAULT_SPORT_IMAGE = "images/assets/sports.jpg"
-DEFAULT_HEALTH_IMAGE = "images/assets/health.jpg"
+DEFAULT_NEWS_IMAGE = os.getenv(
+    "DEFAULT_NEWS_IMAGE",
+    "assets/default_news.jpg",
+)
 
-# =========================
-# Logging
-# =========================
+# ===========================
+# WELCOME
+# ===========================
 
-LOG_LEVEL = "INFO"
+WELCOME_MESSAGE = os.getenv(
+    "WELCOME_MESSAGE",
+    """
+🌟 <b>Welcome to AATG</b>
+
+Before using this bot, please join all the required channels below.
+
+After joining, press the <b>✅ I've Joined</b> button.
+
+Thank you for supporting our community ❤️
+""",
+)
+
+# ===========================
+# LOGGING
+# ===========================
+
+LOG_LEVEL = os.getenv(
+    "LOG_LEVEL",
+    "INFO",
+)
+
+# ===========================
+# RSS
+# ===========================
+
+RSS_FETCH_INTERVAL = 300
+
+MAX_POSTS_PER_RUN = 20
+
+# ===========================
+# TELEGRAM LIMITS
+# ===========================
+
+MAX_CAPTION = 1024
+
+MAX_MESSAGE = 4096
+
+# ===========================
+# DEFAULT CHANNELS
+# (Added to DB only if empty)
+# ===========================
+
+DEFAULT_CHANNELS = [
+    "@paisabase1",
+    "@aatgpay",
+    "@smrtwallet",
+]
