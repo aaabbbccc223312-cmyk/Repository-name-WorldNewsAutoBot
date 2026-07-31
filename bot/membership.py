@@ -1,40 +1,60 @@
 from telegram import Update
 from telegram import Bot
+from telegram.error import TelegramError
 
 from database import get_channels
 
 
-async def get_missing_channels(update: Update, bot: Bot):
+async def get_missing_channels(
+    update: Update,
+    bot: Bot,
+):
     """
-    Returns a list of channels the user has not joined.
+    Returns a list of channels the user
+    has NOT joined.
     """
 
     user_id = update.effective_user.id
-    missing_channels = []
 
     channels = await get_channels()
 
+    missing = []
+
     for channel in channels:
+
         try:
-            member = await bot.get_chat_member(channel, user_id)
 
-            if member.status in ("left", "kicked"):
-                missing_channels.append(channel)
+            member = await bot.get_chat_member(
+                chat_id=channel,
+                user_id=user_id,
+            )
 
-        except Exception:
-            # If the bot can't check a channel, treat it as missing.
-            # Make sure:
-            # 1. The bot is an admin in the channel.
-            # 2. The channel username is correct.
-            missing_channels.append(channel)
+            if member.status in (
+                "left",
+                "kicked",
+            ):
+                missing.append(channel)
 
-    return missing_channels
+        except TelegramError:
+            # If the bot can't check membership,
+            # treat it as missing.
+            missing.append(channel)
+
+    return missing
 
 
-async def has_joined_all(update: Update, bot: Bot):
+async def has_joined_all(
+    update: Update,
+    bot: Bot,
+):
     """
-    Returns True if the user has joined every required channel.
+    Returns True if the user has joined
+    every required channel.
     """
 
-    missing = await get_missing_channels(update, bot)
+    missing = await get_missing_channels(
+        update,
+        bot,
+    )
+
     return len(missing) == 0
