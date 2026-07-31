@@ -3,14 +3,14 @@ import os
 
 from telegram.ext import (
     Application,
-    CallbackQueryHandler,
     CommandHandler,
+    CallbackQueryHandler,
 )
 
 from config import (
     BOT_TOKEN,
-    DEFAULT_CHANNELS,
     LOG_LEVEL,
+    DEFAULT_CHANNELS,
 )
 
 from database import (
@@ -35,9 +35,9 @@ from bot.commands import (
 from news.scheduler import scheduler
 
 
-# =====================================
-# Logging
-# =====================================
+# ==========================================================
+# LOGGING
+# ==========================================================
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL),
@@ -47,61 +47,61 @@ logging.basicConfig(
 logger = logging.getLogger("AATG")
 
 
-# =====================================
-# Startup
-# =====================================
+# ==========================================================
+# STARTUP
+# ==========================================================
 
 async def startup(app: Application):
 
     logger.info("=" * 60)
-    logger.info("🚀 Starting AATG Super Bot V4")
+    logger.info("Starting AATG Super Bot")
     logger.info("=" * 60)
 
-    # Create folders
-    os.makedirs("data", exist_ok=True)
+    # Create required folders
     os.makedirs("assets", exist_ok=True)
+    os.makedirs("data", exist_ok=True)
 
     # Initialize database
     await init_db()
 
-    logger.info("✅ Database initialized")
+    logger.info("Database initialized")
 
-    # Add default channels only once
+    # Load default channels
     for channel in DEFAULT_CHANNELS:
         await add_channel(channel)
 
-    logger.info("✅ Default channels loaded")
+    logger.info("Default channels loaded")
 
     # Start automatic news scheduler
     scheduler.start()
 
-    logger.info("✅ News Scheduler Started")
-    logger.info("✅ Telegram Ready")
-    logger.info("🎉 Bot Started Successfully")
+    logger.info("News scheduler started")
+
+    logger.info("Bot is ready")
 
 
-# =====================================
-# Shutdown
-# =====================================
+# ==========================================================
+# SHUTDOWN
+# ==========================================================
 
 async def shutdown(app: Application):
 
-    logger.info("Stopping Scheduler...")
+    logger.info("Stopping scheduler...")
 
     scheduler.shutdown()
 
-    logger.info("Bot Stopped")
+    logger.info("Bot stopped.")
 
 
-# =====================================
-# Main
-# =====================================
+# ==========================================================
+# MAIN
+# ==========================================================
 
 def main():
 
     if not BOT_TOKEN:
         raise RuntimeError(
-            "BOT_TOKEN is missing. Please set it in your .env file."
+            "BOT_TOKEN is missing in your .env file."
         )
 
     application = (
@@ -112,45 +112,66 @@ def main():
         .build()
     )
 
-    # ===============================
-    # User Commands
-    # ===============================
+    # ------------------------------------------------------
+    # USER COMMANDS
+    # ------------------------------------------------------
 
     application.add_handler(
-        CommandHandler("start", start)
+        CommandHandler(
+            "start",
+            start,
+        )
     )
 
-    # ===============================
-    # Admin Commands
-    # ===============================
+    # ------------------------------------------------------
+    # ADMIN COMMANDS
+    # ------------------------------------------------------
 
     application.add_handler(
-        CommandHandler("addchannel", addchannel)
-    )
-
-    application.add_handler(
-        CommandHandler("removechannel", removechannel)
-    )
-
-    application.add_handler(
-        CommandHandler("pausechannel", pausechannel)
-    )
-
-    application.add_handler(
-        CommandHandler("resumechannel", resumechannel)
+        CommandHandler(
+            "addchannel",
+            addchannel,
+        )
     )
 
     application.add_handler(
-        CommandHandler("channels", channels)
+        CommandHandler(
+            "removechannel",
+            removechannel,
+        )
     )
 
     application.add_handler(
-        CommandHandler("stats", stats)
+        CommandHandler(
+            "pausechannel",
+            pausechannel,
+        )
     )
 
-    # ===============================
-    # Callback Buttons
-    # ===============================
+    application.add_handler(
+        CommandHandler(
+            "resumechannel",
+            resumechannel,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "channels",
+            channels,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "stats",
+            stats,
+        )
+    )
+
+    # ------------------------------------------------------
+    # CALLBACK BUTTONS
+    # ------------------------------------------------------
 
     application.add_handler(
         CallbackQueryHandler(
@@ -159,17 +180,20 @@ def main():
         )
     )
 
-    logger.info("🤖 Bot Polling Started...")
+    logger.info("Bot polling started...")
 
     application.run_polling(
         drop_pending_updates=True,
-        allowed_updates=["message", "callback_query"],
+        allowed_updates=[
+            "message",
+            "callback_query",
+        ],
     )
 
 
-# =====================================
-# Run
-# =====================================
+# ==========================================================
+# RUN
+# ==========================================================
 
 if __name__ == "__main__":
     main()
