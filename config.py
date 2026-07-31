@@ -1,27 +1,34 @@
 import os
 from dotenv import load_dotenv
 
+# ==========================================
+# LOAD ENVIRONMENT
+# ==========================================
+
 load_dotenv()
 
-# ===========================
+# ==========================================
 # BOT
-# ===========================
+# ==========================================
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 
-# ===========================
+ADMIN_ID = int(
+    os.getenv("ADMIN_ID", "0")
+)
+
+# ==========================================
 # DATABASE
-# ===========================
+# ==========================================
 
 DATABASE_PATH = os.getenv(
     "DATABASE_PATH",
     "data/bot.db",
 )
 
-# ===========================
+# ==========================================
 # IMAGES
-# ===========================
+# ==========================================
 
 WELCOME_IMAGE = os.getenv(
     "WELCOME_IMAGE",
@@ -33,55 +40,71 @@ DEFAULT_NEWS_IMAGE = os.getenv(
     "assets/default_news.jpg",
 )
 
-# ===========================
-# WELCOME
-# ===========================
+# ==========================================
+# WELCOME MESSAGE
+# ==========================================
 
-WELCOME_MESSAGE = os.getenv(
-    "WELCOME_MESSAGE",
-    """
+WELCOME_MESSAGE = """
 🌟 <b>Welcome to AATG</b>
 
-Before using this bot, please join all the required channels below.
+Atg is a Buy & Sell Token application.
 
-After joining, press the <b>✅ I've Joined</b> button.
+💰 Earn every time you buy tokens using INR or USDT.
 
-Thank you for supporting our community ❤️
-""",
-)
+📢 Before using this bot, please join all the required channels below.
 
-# ===========================
-# LOGGING
-# ===========================
+After joining, tap the <b>✅ I've Joined</b> button.
 
-LOG_LEVEL = os.getenv(
-    "LOG_LEVEL",
-    "INFO",
-)
+Thank you for supporting AATG ❤️
+""".strip()
 
-# ===========================
-# RSS
-# ===========================
+# ==========================================
+# NEWS SETTINGS
+# ==========================================
 
-RSS_FETCH_INTERVAL = 300
+CHECK_INTERVAL = 300          # 5 minutes
 
 MAX_POSTS_PER_RUN = 20
 
-# ===========================
-# TELEGRAM LIMITS
-# ===========================
+POST_DELAY = 2
 
-MAX_CAPTION = 1024
+# ==========================================
+# LOGGING
+# ==========================================
 
-MAX_MESSAGE = 4096
+LOG_LEVEL = "INFO"
 
-# ===========================
+# ==========================================
 # DEFAULT CHANNELS
-# (Added to DB only if empty)
-# ===========================
+# These are added automatically on first run.
+# Later you'll use /addchannel so you won't
+# need to edit this file again.
+# ==========================================
 
 DEFAULT_CHANNELS = [
     "@paisabase1",
     "@aatgpay",
     "@smrtwallet",
+]
+
+# ==========================================
+# RSS FEEDS
+# Global sources.
+# Later every channel can have its own feed.
+# ==========================================
+
+RSS_FEEDS = [
+
+    # World News
+    "https://feeds.bbci.co.uk/news/rss.xml",
+
+    "https://www.reutersagency.com/feed/?best-topics=world",
+
+    # Sports
+    "https://feeds.bbci.co.uk/sport/rss.xml",
+
+    "https://www.espn.com/espn/rss/news",
+
+    "https://www.skysports.com/rss/12040",
+
 ]
