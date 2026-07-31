@@ -32,57 +32,98 @@ from bot.commands import (
     stats,
 )
 
-# ===========================
+from news.scheduler import scheduler
+
+
+# =====================================
 # Logging
-# ===========================
+# =====================================
 
 logging.basicConfig(
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     level=getattr(logging, LOG_LEVEL),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("AATG")
 
 
-# ===========================
+# =====================================
 # Startup
-# ===========================
+# =====================================
 
-async def on_startup(app: Application):
+async def startup(app: Application):
 
-    logger.info("Initializing database...")
+    logger.info("=" * 60)
+    logger.info("🚀 Starting AATG Super Bot V4")
+    logger.info("=" * 60)
 
+    # Create folders
     os.makedirs("data", exist_ok=True)
     os.makedirs("assets", exist_ok=True)
 
+    # Initialize database
     await init_db()
 
+    logger.info("✅ Database initialized")
+
+    # Add default channels only once
     for channel in DEFAULT_CHANNELS:
         await add_channel(channel)
 
-    logger.info("Database Ready")
-    logger.info("Default Channels Loaded")
-    logger.info("Bot Started Successfully")
+    logger.info("✅ Default channels loaded")
+
+    # Start automatic news scheduler
+    scheduler.start()
+
+    logger.info("✅ News Scheduler Started")
+    logger.info("✅ Telegram Ready")
+    logger.info("🎉 Bot Started Successfully")
 
 
-# ===========================
+# =====================================
+# Shutdown
+# =====================================
+
+async def shutdown(app: Application):
+
+    logger.info("Stopping Scheduler...")
+
+    scheduler.shutdown()
+
+    logger.info("Bot Stopped")
+
+
+# =====================================
 # Main
-# ===========================
+# =====================================
 
 def main():
+
+    if not BOT_TOKEN:
+        raise RuntimeError(
+            "BOT_TOKEN is missing. Please set it in your .env file."
+        )
 
     application = (
         Application.builder()
         .token(BOT_TOKEN)
+        .post_init(startup)
+        .post_shutdown(shutdown)
         .build()
     )
 
+    # ===============================
     # User Commands
+    # ===============================
+
     application.add_handler(
         CommandHandler("start", start)
     )
 
+    # ===============================
     # Admin Commands
+    # ===============================
+
     application.add_handler(
         CommandHandler("addchannel", addchannel)
     )
@@ -107,7 +148,10 @@ def main():
         CommandHandler("stats", stats)
     )
 
-    # Verify Join Button
+    # ===============================
+    # Callback Buttons
+    # ===============================
+
     application.add_handler(
         CallbackQueryHandler(
             check_join,
@@ -115,14 +159,17 @@ def main():
         )
     )
 
-    application.post_init = on_startup
-
-    logger.info("Polling Started...")
+    logger.info("🤖 Bot Polling Started...")
 
     application.run_polling(
         drop_pending_updates=True,
+        allowed_updates=["message", "callback_query"],
     )
 
+
+# =====================================
+# Run
+# =====================================
 
 if __name__ == "__main__":
     main()
