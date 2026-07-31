@@ -1,19 +1,3 @@
-"""
-bot/telegram.py
-
-Professional Telegram Sender
-
-Features
---------
-✅ Send text
-✅ Send photos from URL
-✅ Send local photos
-✅ Auto fallback image
-✅ HTML formatting
-✅ Retry on FloodWait
-✅ Dynamic channels
-"""
-
 import asyncio
 import logging
 import os
@@ -37,84 +21,112 @@ class TelegramSender:
     def __init__(self):
         self.bot = Bot(BOT_TOKEN)
 
-    # --------------------------------------------------
-    # TEXT
-    # --------------------------------------------------
+    # ======================================================
+    # Send Text
+    # ======================================================
 
-    async def send_text(self, channel: str, text: str):
+    async def send_text(
+        self,
+        chat_id: str,
+        text: str,
+    ) -> bool:
 
         try:
 
             await self.bot.send_message(
-                chat_id=channel,
+                chat_id=chat_id,
                 text=text,
                 parse_mode=ParseMode.HTML,
                 disable_web_page_preview=False,
             )
 
-            logger.info(f"Sent text -> {channel}")
+            logger.info(f"Text sent -> {chat_id}")
+
             return True
 
         except RetryAfter as e:
 
+            logger.warning(
+                f"Flood control. Waiting {e.retry_after} seconds."
+            )
+
             await asyncio.sleep(e.retry_after)
-            return await self.send_text(channel, text)
+
+            return await self.send_text(
+                chat_id,
+                text,
+            )
 
         except TimedOut:
 
-            logger.warning("Telegram Timeout")
+            logger.warning("Telegram timeout.")
 
         except TelegramError as e:
 
             logger.error(e)
 
-        except Exception as e:
+        except Exception:
 
-            logger.exception(e)
+            logger.exception("Unexpected error while sending text.")
 
         return False
 
-    # --------------------------------------------------
-    # LOCAL PHOTO
-    # --------------------------------------------------
+    # ======================================================
+    # Send Local Photo
+    # ======================================================
 
-    async def send_photo(self, channel: str, photo_path: str, caption: str):
+    async def send_photo(
+        self,
+        chat_id: str,
+        photo_path: str,
+        caption: str = "",
+    ) -> bool:
 
         try:
 
             with open(photo_path, "rb") as photo:
 
                 await self.bot.send_photo(
-                    chat_id=channel,
+                    chat_id=chat_id,
                     photo=photo,
                     caption=caption,
                     parse_mode=ParseMode.HTML,
                 )
 
-            logger.info(f"Sent photo -> {channel}")
+            logger.info(f"Photo sent -> {chat_id}")
+
             return True
 
         except RetryAfter as e:
 
+            logger.warning(
+                f"Flood control. Waiting {e.retry_after} seconds."
+            )
+
             await asyncio.sleep(e.retry_after)
-            return await self.send_photo(channel, photo_path, caption)
 
-        except Exception as e:
+            return await self.send_photo(
+                chat_id,
+                photo_path,
+                caption,
+            )
 
-            logger.exception(e)
+        except Exception:
+
+            logger.exception("Failed sending local photo.")
 
         return False
 
-    # --------------------------------------------------
-    # PHOTO FROM URL
-    # --------------------------------------------------
+    # ======================================================
+    # Send Image URL
+    # ======================================================
 
     async def send_photo_url(
         self,
-        channel: str,
+        chat_id: str,
         image_url: str,
         caption: str,
-    ):
+    ) -> bool:
 
         try:
 
@@ -123,53 +135,54 @@ class TelegramSender:
                 async with session.get(image_url) as response:
 
                     if response.status != 200:
+
                         return await self.send_default_photo(
-                            channel,
+                            chat_id,
                             caption,
                         )
 
                     image = await response.read()
 
                     await self.bot.send_photo(
-                        chat_id=channel,
+                        chat_id=chat_id,
                         photo=image,
                         caption=caption,
                         parse_mode=ParseMode.HTML,
                     )
 
-            logger.info(f"Image sent -> {channel}")
+            logger.info(f"Image sent -> {chat_id}")
 
             return True
 
-        except Exception as e:
+        except Exception:
 
-            logger.warning(e)
+            logger.exception("Image URL failed.")
 
             return await self.send_default_photo(
-                channel,
+                chat_id,
                 caption,
             )
 
-    # --------------------------------------------------
-    # DEFAULT IMAGE
-    # --------------------------------------------------
+    # ======================================================
+    # Default Image
+    # ======================================================
 
     async def send_default_photo(
         self,
-        channel,
-        caption,
-    ):
+        chat_id: str,
+        caption: str,
+    ) -> bool:
 
-        if os.path.exists(DEFAULT_NEWS_IMAGE):
+        if os.path.isfile(DEFAULT_NEWS_IMAGE):
 
             return await self.send_photo(
-                channel,
+                chat_id,
                 DEFAULT_NEWS_IMAGE,
                 caption,
             )
 
         return await self.send_text(
-            channel,
+            chat_id,
             caption,
         )
 
