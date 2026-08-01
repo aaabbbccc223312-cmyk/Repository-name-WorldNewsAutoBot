@@ -27,6 +27,7 @@ async def post_news():
         articles
 
     )
+
     for channel, article in assignments:
 
         caption = formatter.format(
@@ -63,5 +64,3 @@ scheduler.add_job(
     minutes=5,
 
 )
-
-scheduler.start()
