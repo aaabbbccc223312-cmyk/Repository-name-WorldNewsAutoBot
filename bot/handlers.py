@@ -45,7 +45,9 @@ async def start(
 
             "After joining, press <b>✅ I HAVE JOINED</b>."
 
-        )        await update.message.reply_photo(
+        )
+
+        await update.message.reply_photo(
 
             photo=open(
 
@@ -91,6 +93,7 @@ async def check_join(
         query.from_user.id
 
     )
+
     if joined:
 
         await query.message.edit_caption(
