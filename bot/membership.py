@@ -1,106 +1,56 @@
-from telegram import Update, Bot
-from telegram.error import TelegramError
+"""
+bot/membership.py
 
-from database import get_channels
+Checks whether a user has joined all required channels.
+"""
+
+from telegram import Bot
+
+from config import (
+
+    BOT_TOKEN,
+
+    REQUIRED_CHANNELS,
+
+)
 
 
-async def get_missing_channels(
-    update: Update,
-    bot: Bot,
-):
-    """
-    Returns a list of channels that the user
-    has NOT joined.
-    """
+bot = Bot(
 
-    user = update.effective_user
+    BOT_TOKEN
 
-    if user is None:
-        return []
-
-    channels = await get_channels()
-
-    missing = []
-
-    for channel in channels:
-
-        try:
-
-            member = await bot.get_chat_member(
-                chat_id=channel,
-                user_id=user.id,
-            )
-
-            if member.status in (
-                "left",
-                "kicked",
-            ):
-                missing.append(channel)
-
-        except TelegramError:
-
-            # If Telegram can't verify membership,
-            # treat the channel as missing.
-            missing.append(channel)
-
-        except Exception:
-
-            missing.append(channel)
-
-    return missing
+)
 
 
 async def has_joined_all(
-    update: Update,
-    bot: Bot,
+
+    user_id,
+
 ):
-    """
-    Returns True if the user has joined every
-    required channel.
-    """
 
-    missing = await get_missing_channels(
-        update,
-        bot,
-    )
-
-    return len(missing) == 0
-
-
-async def get_joined_channels(
-    update: Update,
-    bot: Bot,
-):
-    """
-    Returns a list of channels the user
-    has successfully joined.
-    """
-
-    user = update.effective_user
-
-    if user is None:
-        return []
-
-    channels = await get_channels()
-
-    joined = []
-
-    for channel in channels:
+    for channel in REQUIRED_CHANNELS:
 
         try:
 
             member = await bot.get_chat_member(
-                chat_id=channel,
-                user_id=user.id,
-            )
 
-            if member.status not in (
+                chat_id=channel,
+
+                user_id=user_id,
+
+            )
+            if member.status in (
+
                 "left",
+
                 "kicked",
+
             ):
-                joined.append(channel)
+
+                return False
 
         except Exception:
-            pass
 
-    return joined
+            return False
+
+    return True
