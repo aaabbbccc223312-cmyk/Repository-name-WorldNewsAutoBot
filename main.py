@@ -108,7 +108,9 @@ async def startup(
             channel
 
         )
-    scheduler.start()
+     if not scheduler.running:
+
+        scheduler.start()
 
     logger.info(
 
