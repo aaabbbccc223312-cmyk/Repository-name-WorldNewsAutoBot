@@ -19,9 +19,6 @@ if db_folder:
 
 async def connect():
 
-    return await aiosqlite.connect(
-        DATABASE_PATH
-    )
     db = await aiosqlite.connect(
         DATABASE_PATH
     )
@@ -33,11 +30,10 @@ async def connect():
 
 async def init_db():
 
-db = await connect()
+    db = await connect()
 
-db.row_factory = aiosqlite.Row
+    try:
 
-try:
         await db.execute(
             """
             CREATE TABLE IF NOT EXISTS users(
@@ -74,6 +70,7 @@ try:
             )
             """
         )
+
         await db.execute(
             """
             CREATE TABLE IF NOT EXISTS rss_sources(
@@ -107,8 +104,11 @@ try:
                 DEFAULT CURRENT_TIMESTAMP,
 
                 UNIQUE(
+
                     channel_username,
+
                     article_id
+
                 )
 
             )
@@ -129,10 +129,18 @@ try:
 
         await db.commit()
 
+    finally:
 
-async def save_user(user):
+        await db.close()
+async def save_user(
 
-    async with await connect() as db:
+    user,
+
+):
+
+    db = await connect()
+
+    try:
 
         await db.execute(
             """
@@ -157,9 +165,17 @@ async def save_user(user):
         )
 
         await db.commit()
+
+    finally:
+
+        await db.close()
+
+
 async def total_users():
 
-    async with await connect() as db:
+    db = await connect()
+
+    try:
 
         cursor = await db.execute(
             "SELECT COUNT(*) FROM users"
@@ -168,6 +184,10 @@ async def total_users():
         row = await cursor.fetchone()
 
         return row[0]
+
+    finally:
+
+        await db.close()
 
 
 async def add_channel(
@@ -178,7 +198,9 @@ async def add_channel(
 
 ):
 
-    async with await connect() as db:
+    db = await connect()
+
+    try:
 
         await db.execute(
             """
@@ -201,6 +223,10 @@ async def add_channel(
 
         await db.commit()
 
+    finally:
+
+        await db.close()
+
 
 async def remove_channel(
 
@@ -208,7 +234,9 @@ async def remove_channel(
 
 ):
 
-    async with await connect() as db:
+    db = await connect()
+
+    try:
 
         await db.execute(
             """
@@ -224,14 +252,18 @@ async def remove_channel(
 
         await db.commit()
 
+    finally:
 
+        await db.close()
 async def pause_channel(
 
     username,
 
 ):
 
-    async with await connect() as db:
+    db = await connect()
+
+    try:
 
         await db.execute(
             """
@@ -248,13 +280,21 @@ async def pause_channel(
         )
 
         await db.commit()
+
+    finally:
+
+        await db.close()
+
+
 async def resume_channel(
 
     username,
 
 ):
 
-    async with await connect() as db:
+    db = await connect()
+
+    try:
 
         await db.execute(
             """
@@ -272,10 +312,16 @@ async def resume_channel(
 
         await db.commit()
 
+    finally:
+
+        await db.close()
+
 
 async def get_channels():
 
-    async with await connect() as db:
+    db = await connect()
+
+    try:
 
         cursor = await db.execute(
             """
@@ -292,10 +338,16 @@ async def get_channels():
 
         return await cursor.fetchall()
 
+    finally:
+
+        await db.close()
+
 
 async def total_channels():
 
-    async with await connect() as db:
+    db = await connect()
+
+    try:
 
         cursor = await db.execute(
             """
@@ -312,7 +364,9 @@ async def total_channels():
 
         return row[0]
 
+    finally:
 
+        await db.close()
 async def has_posted(
 
     channel_username,
@@ -321,7 +375,9 @@ async def has_posted(
 
 ):
 
-    async with await connect() as db:
+    db = await connect()
+
+    try:
 
         cursor = await db.execute(
             """
@@ -344,6 +400,10 @@ async def has_posted(
 
         return await cursor.fetchone() is not None
 
+    finally:
+
+        await db.close()
+
 
 async def save_post(
 
@@ -355,7 +415,9 @@ async def save_post(
 
 ):
 
-    async with await connect() as db:
+    db = await connect()
+
+    try:
 
         await db.execute(
             """
@@ -381,102 +443,14 @@ async def save_post(
 
         await db.commit()
 
+    finally:
 
-async def add_rss(
-
-    category,
-
-    feed_url,
-
-):
-
-    async with await connect() as db:
-
-        await db.execute(
-            """
-            INSERT OR IGNORE INTO rss_sources(
-
-                category,
-
-                feed_url
-
-            )
-
-            VALUES(?,?)
-
-            """,
-            (
-                category.lower(),
-                feed_url,
-            ),
-        )
-
-        await db.commit()
-
-
-async def remove_rss(
-
-    feed_url,
-
-):
-
-    async with await connect() as db:
-
-        await db.execute(
-            """
-            DELETE FROM rss_sources
-
-            WHERE feed_url=?
-
-            """,
-            (
-                feed_url,
-            ),
-        )
-
-        await db.commit()
-
-
-async def get_rss_by_category(
-
-    category,
-
-):
-
-    async with await connect() as db:
-
-        cursor = await db.execute(
-            """
-            SELECT feed_url
-
-            FROM rss_sources
-
-            WHERE enabled=1
-
-            AND category=?
-
-            ORDER BY id
-
-            """,
-            (
-                category.lower(),
-            ),
-        )
-
-        rows = await cursor.fetchall()
-
-        return [
-
-            row["feed_url"]
-
-            for row in rows
-
-        ]
-
-
+        await db.close()
 async def get_all_rss():
 
-    async with await connect() as db:
+    db = await connect()
+
+    try:
 
         cursor = await db.execute(
             """
@@ -493,118 +467,6 @@ async def get_all_rss():
 
         return await cursor.fetchall()
 
+    finally:
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        await db.close()
