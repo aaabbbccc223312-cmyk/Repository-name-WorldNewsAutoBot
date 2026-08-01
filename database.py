@@ -19,6 +19,9 @@ if db_folder:
 
 async def connect():
 
+    return await aiosqlite.connect(
+        DATABASE_PATH
+    )
     db = await aiosqlite.connect(
         DATABASE_PATH
     )
@@ -30,8 +33,11 @@ async def connect():
 
 async def init_db():
 
-    async with await connect() as db:
+db = await connect()
 
+db.row_factory = aiosqlite.Row
+
+try:
         await db.execute(
             """
             CREATE TABLE IF NOT EXISTS users(
