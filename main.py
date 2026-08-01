@@ -108,7 +108,8 @@ async def startup(
             channel
 
         )
-     if not scheduler.running:
+
+    if not scheduler.running:
 
         scheduler.start()
 
