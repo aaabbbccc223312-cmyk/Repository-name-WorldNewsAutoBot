@@ -1,149 +1,128 @@
-# ==========================================================
-# DATABASE.PY
-# PART 1 OF 4
-# ==========================================================
-
 import os
+
 import aiosqlite
 
 from config import DATABASE_PATH
 
 
-# ==========================================================
-# CREATE DATABASE FOLDER
-# ==========================================================
+db_folder = os.path.dirname(
+    DATABASE_PATH
+)
 
-database_folder = os.path.dirname(DATABASE_PATH)
+if db_folder:
 
-if database_folder:
-    os.makedirs(database_folder, exist_ok=True)
+    os.makedirs(
+        db_folder,
+        exist_ok=True,
+    )
 
-
-# ==========================================================
-# DATABASE CONNECTION
-# ==========================================================
 
 async def connect():
 
-    db = await aiosqlite.connect(DATABASE_PATH)
+    db = await aiosqlite.connect(
+        DATABASE_PATH
+    )
 
     db.row_factory = aiosqlite.Row
 
     return db
 
 
-# ==========================================================
-# INITIALIZE DATABASE
-# ==========================================================
-
 async def init_db():
 
     async with await connect() as db:
 
-        # --------------------------------------
-        # USERS
-        # --------------------------------------
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users(
 
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS users(
+                user_id INTEGER PRIMARY KEY,
 
-            user_id INTEGER PRIMARY KEY,
+                username TEXT,
 
-            username TEXT,
+                first_name TEXT,
 
-            first_name TEXT,
+                joined_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP
 
-            joined_at TIMESTAMP
-            DEFAULT CURRENT_TIMESTAMP
-
+            )
+            """
         )
-        """)
 
-        # --------------------------------------
-        # CHANNELS
-        # --------------------------------------
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS channels(
 
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS channels(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE,
 
-            username TEXT UNIQUE NOT NULL,
+                category TEXT,
 
-            category TEXT NOT NULL,
+                enabled INTEGER
+                DEFAULT 1,
 
-            enabled INTEGER DEFAULT 1,
+                created_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP
 
-            created_at TIMESTAMP
-            DEFAULT CURRENT_TIMESTAMP
-
+            )
+            """
         )
-        """)
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS rss_sources(
 
-        # --------------------------------------
-        # RSS SOURCES
-        # --------------------------------------
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS rss_sources(
+                category TEXT,
 
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                feed_url TEXT UNIQUE,
 
-            category TEXT NOT NULL,
+                enabled INTEGER
+                DEFAULT 1
 
-            feed_url TEXT UNIQUE NOT NULL,
-
-            enabled INTEGER DEFAULT 1,
-
-            created_at TIMESTAMP
-            DEFAULT CURRENT_TIMESTAMP
-
+            )
+            """
         )
-        """)
 
-        # --------------------------------------
-        # POSTED NEWS
-        # --------------------------------------
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS posted_news(
 
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS posted_news(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel_username TEXT,
 
-            channel_username TEXT NOT NULL,
+                article_id TEXT,
 
-            article_id TEXT NOT NULL,
+                title TEXT,
 
-            title TEXT,
+                posted_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP,
 
-            posted_at TIMESTAMP
-            DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(
+                    channel_username,
+                    article_id
+                )
 
-            UNIQUE(channel_username, article_id)
-
+            )
+            """
         )
-        """)
 
-        # --------------------------------------
-        # SETTINGS
-        # --------------------------------------
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS settings(
 
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS settings(
+                key TEXT PRIMARY KEY,
 
-            setting_key TEXT PRIMARY KEY,
+                value TEXT
 
-            setting_value TEXT
-
+            )
+            """
         )
-        """)
 
         await db.commit()
 
-
-# ==========================================================
-# USERS
-# ==========================================================
 
 async def save_user(user):
 
@@ -172,8 +151,6 @@ async def save_user(user):
         )
 
         await db.commit()
-
-
 async def total_users():
 
     async with await connect() as db:
@@ -187,26 +164,12 @@ async def total_users():
         return row[0]
 
 
-# ==========================================================
-# END OF PART 1
-# ==========================================================
-
-
-# ==========================================================
-# >>> PASTE PART 2 BELOW THIS LINE <<<
-# ==========================================================
-# ==========================================================
-# DATABASE.PY
-# PART 2 OF 4
-# ==========================================================
-
-# ==========================================================
-# CHANNELS
-# ==========================================================
-
 async def add_channel(
-    username: str,
-    category: str = "world",
+
+    username,
+
+    category="world",
+
 ):
 
     async with await connect() as db:
@@ -233,22 +196,34 @@ async def add_channel(
         await db.commit()
 
 
-async def remove_channel(username: str):
+async def remove_channel(
+
+    username,
+
+):
 
     async with await connect() as db:
 
         await db.execute(
             """
             DELETE FROM channels
+
             WHERE username=?
+
             """,
-            (username,),
+            (
+                username,
+            ),
         )
 
         await db.commit()
 
 
-async def pause_channel(username: str):
+async def pause_channel(
+
+    username,
+
+):
 
     async with await connect() as db:
 
@@ -259,14 +234,19 @@ async def pause_channel(username: str):
             SET enabled=0
 
             WHERE username=?
+
             """,
-            (username,),
+            (
+                username,
+            ),
         )
 
         await db.commit()
+async def resume_channel(
 
+    username,
 
-async def resume_channel(username: str):
+):
 
     async with await connect() as db:
 
@@ -277,8 +257,11 @@ async def resume_channel(username: str):
             SET enabled=1
 
             WHERE username=?
+
             """,
-            (username,),
+            (
+                username,
+            ),
         )
 
         await db.commit()
@@ -290,34 +273,14 @@ async def get_channels():
 
         cursor = await db.execute(
             """
-            SELECT username
-
-            FROM channels
-
-            WHERE enabled=1
-
-            ORDER BY id
-            """
-        )
-
-        rows = await cursor.fetchall()
-
-        return [row["username"] for row in rows]
-
-
-async def get_channels_with_category():
-
-    async with await connect() as db:
-
-        cursor = await db.execute(
-            """
             SELECT *
 
             FROM channels
 
             WHERE enabled=1
 
-            ORDER BY id
+            ORDER BY username
+
             """
         )
 
@@ -335,6 +298,7 @@ async def total_channels():
             FROM channels
 
             WHERE enabled=1
+
             """
         )
 
@@ -342,131 +306,20 @@ async def total_channels():
 
         return row[0]
 
-
-# ==========================================================
-# RSS SOURCES
-# ==========================================================
-
-async def add_rss(
-
-    category: str,
-
-    feed_url: str,
-
-):
-
-    async with await connect() as db:
-
-        await db.execute(
-            """
-            INSERT OR IGNORE INTO rss_sources(
-
-                category,
-
-                feed_url
-
-            )
-
-            VALUES(?,?)
-
-            """,
-            (
-                category.lower(),
-                feed_url,
-            ),
-        )
-
-        await db.commit()
-
-
-async def remove_rss(feed_url: str):
-
-    async with await connect() as db:
-
-        await db.execute(
-            """
-            DELETE FROM rss_sources
-
-            WHERE feed_url=?
-            """,
-            (feed_url,),
-        )
-
-        await db.commit()
-
-
-async def get_rss(category: str):
-
-    async with await connect() as db:
-
-        cursor = await db.execute(
-            """
-            SELECT feed_url
-
-            FROM rss_sources
-
-            WHERE enabled=1
-
-            AND category=?
-
-            ORDER BY id
-            """,
-            (
-                category.lower(),
-            ),
-        )
-
-        rows = await cursor.fetchall()
-
-        return [row["feed_url"] for row in rows]
-
-
-async def total_rss():
-
-    async with await connect() as db:
-
-        cursor = await db.execute(
-            """
-            SELECT COUNT(*)
-
-            FROM rss_sources
-
-            WHERE enabled=1
-            """
-        )
-
-        row = await cursor.fetchone()
-
-        return row[0]
-
-
-# ==========================================================
-# END OF PART 2
-# ==========================================================
-
-
-# ==========================================================
-# >>> PASTE PART 3 BELOW THIS LINE <<<
-# ==========================================================
-# ==========================================================
-# DATABASE.PY
-# PART 3 OF 4
-# ==========================================================
-
-# ==========================================================
-# POSTED NEWS
-# ==========================================================
 
 async def has_posted(
-    channel_username: str,
-    article_id: str,
+
+    channel_username,
+
+    article_id,
+
 ):
 
     async with await connect() as db:
 
         cursor = await db.execute(
             """
-            SELECT id
+            SELECT 1
 
             FROM posted_news
 
@@ -475,6 +328,7 @@ async def has_posted(
             AND article_id=?
 
             LIMIT 1
+
             """,
             (
                 channel_username,
@@ -482,15 +336,17 @@ async def has_posted(
             ),
         )
 
-        row = await cursor.fetchone()
-
-        return row is not None
+        return await cursor.fetchone() is not None
 
 
 async def save_post(
-    channel_username: str,
-    article_id: str,
-    title: str,
+
+    channel_username,
+
+    article_id,
+
+    title,
+
 ):
 
     async with await connect() as db:
@@ -520,230 +376,229 @@ async def save_post(
         await db.commit()
 
 
-async def total_posts():
+async def add_rss(
 
-    async with await connect() as db:
+    category,
 
-        cursor = await db.execute(
-            """
-            SELECT COUNT(*)
+    feed_url,
 
-            FROM posted_news
-            """
-        )
-
-        row = await cursor.fetchone()
-
-        return row[0]
-
-
-async def clear_post_history():
-
-    async with await connect() as db:
-
-        await db.execute(
-            """
-            DELETE FROM posted_news
-            """
-        )
-
-        await db.commit()
-
-
-# ==========================================================
-# SETTINGS
-# ==========================================================
-
-async def set_setting(
-    key: str,
-    value: str,
 ):
 
     async with await connect() as db:
 
         await db.execute(
             """
-            INSERT INTO settings(
+            INSERT OR IGNORE INTO rss_sources(
 
-                setting_key,
+                category,
 
-                setting_value
+                feed_url
 
             )
 
             VALUES(?,?)
 
-            ON CONFLICT(setting_key)
-
-            DO UPDATE SET
-
-            setting_value=excluded.setting_value
             """,
             (
-                key,
-                value,
+                category.lower(),
+                feed_url,
             ),
         )
 
         await db.commit()
 
 
-async def get_setting(
-    key: str,
-    default=None,
+async def remove_rss(
+
+    feed_url,
+
+):
+
+    async with await connect() as db:
+
+        await db.execute(
+            """
+            DELETE FROM rss_sources
+
+            WHERE feed_url=?
+
+            """,
+            (
+                feed_url,
+            ),
+        )
+
+        await db.commit()
+
+
+async def get_rss_by_category(
+
+    category,
+
 ):
 
     async with await connect() as db:
 
         cursor = await db.execute(
             """
-            SELECT setting_value
+            SELECT feed_url
 
-            FROM settings
+            FROM rss_sources
 
-            WHERE setting_key=?
+            WHERE enabled=1
 
-            LIMIT 1
+            AND category=?
+
+            ORDER BY id
+
             """,
-            (key,),
+            (
+                category.lower(),
+            ),
         )
 
-        row = await cursor.fetchone()
+        rows = await cursor.fetchall()
 
-        if row:
+        return [
 
-            return row["setting_value"]
+            row["feed_url"]
 
-        return default
+            for row in rows
 
-
-# ==========================================================
-# END OF PART 3
-# ==========================================================
+        ]
 
 
-# ==========================================================
-# >>> PASTE PART 4 BELOW THIS LINE <<<
-# ==========================================================
-# ==========================================================
-# DATABASE.PY
-# PART 4 OF 4
-# ==========================================================
-
-# ==========================================================
-# DEFAULT RSS SOURCES
-# ==========================================================
-
-DEFAULT_RSS = {
-
-    "world": [
-
-        "https://feeds.bbci.co.uk/news/world/rss.xml",
-        "https://www.reutersagency.com/feed/?best-topics=world",
-
-    ],
-
-    "football": [
-
-        "https://feeds.bbci.co.uk/sport/football/rss.xml",
-
-    ],
-
-    "technology": [
-
-        "https://techcrunch.com/feed/",
-
-    ],
-
-    "crypto": [
-
-        "https://www.coindesk.com/arc/outboundfeeds/rss/",
-
-    ],
-
-    "business": [
-
-        "https://feeds.bbci.co.uk/news/business/rss.xml",
-
-    ],
-
-}
-
-
-# ==========================================================
-# LOAD DEFAULT RSS
-# ==========================================================
-
-async def load_default_rss():
-
-    for category, feeds in DEFAULT_RSS.items():
-
-        for feed in feeds:
-
-            await add_rss(category, feed)
-
-
-# ==========================================================
-# DATABASE HEALTH CHECK
-# ==========================================================
-
-async def database_health():
-
-    try:
-
-        async with await connect() as db:
-
-            await db.execute("SELECT 1")
-
-        return True
-
-    except Exception:
-
-        return False
-
-
-# ==========================================================
-# RESET DATABASE
-# ==========================================================
-
-async def clear_users():
+async def get_all_rss():
 
     async with await connect() as db:
 
-        await db.execute("DELETE FROM users")
+        cursor = await db.execute(
+            """
+            SELECT *
 
-        await db.commit()
+            FROM rss_sources
 
+            WHERE enabled=1
 
-async def clear_channels():
+            ORDER BY category,id
 
-    async with await connect() as db:
+            """
+        )
 
-        await db.execute("DELETE FROM channels")
-
-        await db.commit()
-
-
-async def clear_rss():
-
-    async with await connect() as db:
-
-        await db.execute("DELETE FROM rss_sources")
-
-        await db.commit()
+        return await cursor.fetchall()
 
 
-# ==========================================================
-# STARTUP
-# ==========================================================
-
-async def startup_database():
-
-    await init_db()
-
-    await load_default_rss()
 
 
-# ==========================================================
-# END OF DATABASE
-# ==========================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
