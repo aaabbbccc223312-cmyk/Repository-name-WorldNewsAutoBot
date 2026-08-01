@@ -1,143 +1,120 @@
-import os
-
 from telegram import Update
+
 from telegram.constants import ParseMode
+
 from telegram.ext import ContextTypes
 
-from config import (
-    WELCOME_IMAGE,
-    WELCOME_MESSAGE,
-)
+from bot.keyboards import join_keyboard
+
+from bot.membership import has_joined_all
 
 from database import save_user
-from bot.keyboards import join_keyboard
-from bot.membership import get_missing_channels
 
+from config import WELCOME_IMAGE
 
-# ==========================================================
-# /start
-# ==========================================================
 
 async def start(
+
     update: Update,
+
     context: ContextTypes.DEFAULT_TYPE,
+
 ):
 
-    if update.message is None:
-        return
+    user = update.effective_user
 
-    # Save user
-    await save_user(update.effective_user)
+    await save_user(
 
-    keyboard = await join_keyboard()
+        user
 
-    # Send welcome image if available
-    if os.path.isfile(WELCOME_IMAGE):
+    )
 
-        with open(WELCOME_IMAGE, "rb") as photo:
+    joined = await has_joined_all(
 
-            await update.message.reply_photo(
-                photo=photo,
-                caption=WELCOME_MESSAGE,
-                parse_mode=ParseMode.HTML,
-                reply_markup=keyboard,
-            )
+        user.id
 
-    else:
+    )
 
-        await update.message.reply_text(
-            text=WELCOME_MESSAGE,
+    if not joined:
+
+        caption = (
+
+            "🌟 <b>Welcome to AATG</b>\n\n"
+
+            "To use this bot you must join all the channels below.\n\n"
+
+            "After joining, press <b>✅ I HAVE JOINED</b>."
+
+        )        await update.message.reply_photo(
+
+            photo=open(
+
+                WELCOME_IMAGE,
+
+                "rb",
+
+            ),
+
+            caption=caption,
+
             parse_mode=ParseMode.HTML,
-            reply_markup=keyboard,
-            disable_web_page_preview=True,
+
+            reply_markup=join_keyboard(),
+
         )
 
+        return
 
-# ==========================================================
-# VERIFY JOIN
-# ==========================================================
+    await update.message.reply_text(
+
+        "✅ Welcome! You now have access to the bot.",
+
+        parse_mode=ParseMode.HTML,
+
+    )
+
 
 async def check_join(
+
     update: Update,
+
     context: ContextTypes.DEFAULT_TYPE,
+
 ):
 
     query = update.callback_query
 
-    if query is None:
-        return
-
     await query.answer()
 
-    missing = await get_missing_channels(
-        update,
-        context.bot,
+    joined = await has_joined_all(
+
+        query.from_user.id
+
     )
+    if joined:
 
-    # ------------------------------------------------------
-    # USER HAS NOT JOINED EVERY CHANNEL
-    # ------------------------------------------------------
+        await query.message.edit_caption(
 
-    if missing:
+            caption=(
 
-        keyboard = await join_keyboard()
+                "✅ <b>Verification Successful!</b>\n\n"
 
-        text = (
-            "❌ <b>You haven't joined all required channels.</b>\n\n"
-            "Please join every channel below before continuing.\n\n"
-        )
+                "You have joined all the required channels."
 
-        for channel in missing:
+            ),
 
-            text += f"• {channel}\n"
-
-        text += (
-            "\nAfter joining them all, press\n"
-            "<b>✅ I've Joined</b> again."
-        )
-
-        try:
-
-            await query.edit_message_caption(
-                caption=text,
-                parse_mode=ParseMode.HTML,
-                reply_markup=keyboard,
-            )
-
-        except Exception:
-
-            await query.edit_message_text(
-                text=text,
-                parse_mode=ParseMode.HTML,
-                reply_markup=keyboard,
-                disable_web_page_preview=True,
-            )
-
-        return
-
-    # ------------------------------------------------------
-    # USER VERIFIED
-    # ------------------------------------------------------
-
-    await save_user(update.effective_user)
-
-    success = (
-        "🎉 <b>Verification Successful!</b>\n\n"
-        "✅ Thank you for joining all required channels.\n\n"
-        "Welcome to <b>AATG</b> ❤️\n\n"
-        "You now have full access to the bot."
-    )
-
-    try:
-
-        await query.edit_message_caption(
-            caption=success,
             parse_mode=ParseMode.HTML,
+
+            reply_markup=None,
+
         )
 
-    except Exception:
+    else:
 
-        await query.edit_message_text(
-            text=success,
-            parse_mode=ParseMode.HTML,
+        await query.answer(
+
+            text="❌ Please join all required channels first.",
+
+            show_alert=True,
+
         )
