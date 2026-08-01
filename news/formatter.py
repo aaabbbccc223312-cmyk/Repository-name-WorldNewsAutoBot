@@ -1,128 +1,106 @@
 """
 news/formatter.py
 
-Formats news articles for Telegram.
-Automatically generates hashtags.
+Formats articles for Telegram.
 """
 
-import re
+from datetime import datetime
 
 
-class NewsFormatter:
+class Formatter:
 
-    HASHTAGS = {
-        "football": [
-            "football",
-            "premier league",
-            "champions league",
-            "uefa",
-            "fifa",
-            "laliga",
-            "serie a",
-            "bundesliga",
-            "transfer",
-            "arsenal",
-            "chelsea",
-            "liverpool",
-            "manchester",
-            "barcelona",
-            "real madrid",
-        ],
-        "basketball": [
-            "nba",
-            "basketball",
-            "lakers",
-            "warriors",
-            "celtics",
-            "bucks",
-        ],
-        "tennis": [
-            "tennis",
-            "atp",
-            "wta",
-            "grand slam",
-            "wimbledon",
-            "us open",
-            "roland garros",
-        ],
-        "cricket": [
-            "cricket",
-            "ipl",
-            "icc",
-        ],
-        "formula1": [
-            "formula 1",
-            "f1",
-            "verstappen",
-            "hamilton",
-            "ferrari",
-            "mercedes",
-        ],
-        "world": [
-            "breaking",
-            "world",
-            "politics",
-            "economy",
-            "business",
-            "technology",
-            "science",
-            "health",
-        ],
-    }
+    def __init__(self):
 
-    def hashtags(self, text: str):
+        pass
 
-        text = text.lower()
 
-        tags = []
+    def clean(
 
-        for tag, words in self.HASHTAGS.items():
+        self,
 
-            if any(word in text for word in words):
-                tags.append("#" + tag.capitalize())
+        text,
 
-        tags.append("#Trending")
-        tags.append("#BreakingNews")
+    ):
 
-        # Remove duplicates
-        tags = list(dict.fromkeys(tags))
+        if not text:
 
-        return " ".join(tags)
+            return ""
 
-    def shorten(self, text: str, limit=350):
+        return " ".join(
 
-        text = re.sub(r"\s+", " ", text).strip()
+            text.split()
 
-        if len(text) <= limit:
-            return text
-
-        return text[:limit].rstrip() + "..."
-
-    def format(self, article):
-
-        title = article["title"]
-
-        summary = self.shorten(article.get("summary", ""))
-
-        source = article.get("source", "News")
-
-        link = article["link"]
-
-        tags = self.hashtags(
-            title + " " + summary
         )
 
-        return f"""
-📰 <b>{title}</b>
 
-{summary}
+    def format(
 
-🌍 <b>Source:</b> {source}
+        self,
 
-🔗 <a href="{link}">Read Full Story</a>
+        article,
 
-{tags}
-""".strip()
+    ):
+
+        title = self.clean(
+
+            article.get(
+
+                "title",
+
+                "",
+
+            )
+
+        )
+
+        summary = self.clean(
+
+            article.get(
+
+                "summary",
+
+                "",
+
+            )
+
+        )
+        source = article.get(
+
+            "source",
+
+            "News",
+
+        )
+
+        link = article.get(
+
+            "link",
+
+            "",
+
+        )
+
+        now = datetime.utcnow().strftime(
+
+            "%d %b %Y"
+
+        )
+
+        text = (
+
+            f"📰 <b>{title}</b>\n\n"
+
+            f"{summary}\n\n"
+
+            f"🌍 <b>Source:</b> {source}\n"
+
+            f"📅 <b>Date:</b> {now}\n\n"
+
+            f"🔗 {link}"
+
+        )
+
+        return text
 
 
-formatter = NewsFormatter()
+formatter = Formatter()
