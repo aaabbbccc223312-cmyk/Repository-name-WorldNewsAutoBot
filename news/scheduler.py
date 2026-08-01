@@ -1,65 +1,67 @@
 """
 news/scheduler.py
 
-Runs the news engine automatically every few minutes.
+Automatically fetches and posts news.
 """
-
-import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from config import RSS_FETCH_INTERVAL
-from news.poster import poster
+from news.fetcher import fetcher
 
-logger = logging.getLogger(__name__)
+from news.formatter import formatter
+
+from news.router import router
+
+from news.sender import sender
 
 
-class NewsScheduler:
+scheduler = AsyncIOScheduler()
 
-    def __init__(self):
 
-        self.scheduler = AsyncIOScheduler()
+async def post_news():
 
-    async def job(self):
+    articles = fetcher.fetch()
 
-        logger.info("=" * 60)
-        logger.info("Checking RSS feeds...")
-        logger.info("=" * 60)
+    assignments = await router.distribute(
 
-        try:
+        articles
 
-            await poster.run()
+    )
+    for channel, article in assignments:
 
-        except Exception as e:
+        caption = formatter.format(
 
-            logger.exception(e)
+            article
 
-    def start(self):
-
-        if self.scheduler.running:
-            return
-
-        self.scheduler.add_job(
-            self.job,
-            trigger="interval",
-            seconds=RSS_FETCH_INTERVAL,
-            id="rss_news_job",
-            replace_existing=True,
-            max_instances=1,
-            coalesce=True,
         )
 
-        self.scheduler.start()
+        await sender.send(
 
-        logger.info("News Scheduler Started")
-        logger.info(
-            f"Checking news every {RSS_FETCH_INTERVAL} seconds."
+            channel,
+
+            article,
+
+            caption,
+
         )
 
-    def shutdown(self):
+        await router.mark_posted(
 
-        if self.scheduler.running:
-            self.scheduler.shutdown()
+            channel,
+
+            article,
+
+        )
 
 
-scheduler = NewsScheduler()
+scheduler.add_job(
+
+    post_news,
+
+    "interval",
+
+    minutes=5,
+
+)
+
+scheduler.start()
