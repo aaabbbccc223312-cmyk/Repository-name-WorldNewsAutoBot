@@ -1,192 +1,296 @@
 from telegram import Update
-from telegram.constants import ParseMode
+
 from telegram.ext import ContextTypes
 
 from config import ADMIN_ID
 
 from database import (
+
     add_channel,
+
     remove_channel,
+
     pause_channel,
+
     resume_channel,
+
     get_channels,
-    total_users,
+
     total_channels,
-    total_posts,
+
+    total_users,
+
 )
 
 
-# ==========================================================
-# ADMIN CHECK
-# ==========================================================
+def is_admin(
 
-def is_admin(update: Update) -> bool:
-    return update.effective_user.id == ADMIN_ID
+    user_id,
+
+):
+
+    return user_id == ADMIN_ID
 
 
-# ==========================================================
-# /addchannel
-# ==========================================================
+async def addchannel(
 
-async def addchannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    update: Update,
 
-    if not is_admin(update):
+    context: ContextTypes.DEFAULT_TYPE,
+
+):
+
+    if not is_admin(
+
+        update.effective_user.id,
+
+    ):
+
         return
 
-    if len(context.args) != 1:
+    if len(
+
+        context.args
+
+    ) < 1:
 
         await update.message.reply_text(
-            "Usage:\n\n/addchannel @channelusername"
+
+            "Usage:\n/addchannel @channel"
+
         )
+
         return
 
-    channel = context.args[0].strip()
+    username = context.args[0]
 
-    if not channel.startswith("@"):
+    category = (
 
-        await update.message.reply_text(
-            "Channel username must start with @"
-        )
-        return
+        context.args[1]
 
-    await add_channel(channel)
+        if len(context.args) > 1
+
+        else "world"
+
+    )
+
+    await add_channel(
+
+        username,
+
+        category,
+
+    )
 
     await update.message.reply_text(
-        f"✅ Channel added successfully.\n\n{channel}"
+
+        f"✅ Added {username}"
+
+    )
+async def removechannel(
+
+    update: Update,
+
+    context: ContextTypes.DEFAULT_TYPE,
+
+):
+
+    if not is_admin(
+
+        update.effective_user.id,
+
+    ):
+
+        return
+
+    if len(
+
+        context.args
+
+    ) < 1:
+
+        await update.message.reply_text(
+
+            "Usage:\n/removechannel @channel"
+
+        )
+
+        return
+
+    username = context.args[0]
+
+    await remove_channel(
+
+        username,
+
+    )
+
+    await update.message.reply_text(
+
+        f"🗑 Removed {username}"
+
     )
 
 
-# ==========================================================
-# /removechannel
-# ==========================================================
+async def pausechannel(
 
-async def removechannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    update: Update,
 
-    if not is_admin(update):
+    context: ContextTypes.DEFAULT_TYPE,
+
+):
+
+    if not is_admin(
+
+        update.effective_user.id,
+
+    ):
+
         return
 
-    if len(context.args) != 1:
+    if len(
+
+        context.args
+
+    ) < 1:
 
         await update.message.reply_text(
-            "Usage:\n\n/removechannel @channelusername"
+
+            "Usage:\n/pausechannel @channel"
+
         )
+
         return
 
-    channel = context.args[0].strip()
+    username = context.args[0]
 
-    await remove_channel(channel)
+    await pause_channel(
+
+        username,
+
+    )
 
     await update.message.reply_text(
-        f"🗑 Channel removed.\n\n{channel}"
+
+        f"⏸ Paused {username}"
+
+    )
+async def resumechannel(
+
+    update: Update,
+
+    context: ContextTypes.DEFAULT_TYPE,
+
+):
+
+    if not is_admin(
+
+        update.effective_user.id,
+
+    ):
+
+        return
+
+    if len(
+
+        context.args
+
+    ) < 1:
+
+        await update.message.reply_text(
+
+            "Usage:\n/resumechannel @channel"
+
+        )
+
+        return
+
+    username = context.args[0]
+
+    await resume_channel(
+
+        username,
+
+    )
+
+    await update.message.reply_text(
+
+        f"▶️ Resumed {username}"
+
     )
 
 
-# ==========================================================
-# /pausechannel
-# ==========================================================
+async def channels(
 
-async def pausechannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    update: Update,
 
-    if not is_admin(update):
+    context: ContextTypes.DEFAULT_TYPE,
+
+):
+
+    if not is_admin(
+
+        update.effective_user.id,
+
+    ):
+
         return
 
-    if len(context.args) != 1:
+    rows = await get_channels()
+
+    if not rows:
 
         await update.message.reply_text(
-            "Usage:\n\n/pausechannel @channelusername"
+
+            "No channels found."
+
         )
+
         return
 
-    channel = context.args[0].strip()
+    text = "📢 Channels\n\n"
 
-    await pause_channel(channel)
+    for row in rows:
+
+        text += (
+
+            f"{row['username']}"
+
+            f" ({row['category']})\n"
+
+        )
 
     await update.message.reply_text(
-        f"⏸ Channel paused.\n\n{channel}"
+
+        text
+
     )
 
 
-# ==========================================================
-# /resumechannel
-# ==========================================================
+async def stats(
 
-async def resumechannel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    update: Update,
 
-    if not is_admin(update):
-        return
+    context: ContextTypes.DEFAULT_TYPE,
 
-    if len(context.args) != 1:
+):
 
-        await update.message.reply_text(
-            "Usage:\n\n/resumechannel @channelusername"
-        )
-        return
+    if not is_admin(
 
-    channel = context.args[0].strip()
+        update.effective_user.id,
 
-    await resume_channel(channel)
+    ):
 
-    await update.message.reply_text(
-        f"▶️ Channel resumed.\n\n{channel}"
-    )
-
-
-# ==========================================================
-# /channels
-# ==========================================================
-
-async def channels(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    if not is_admin(update):
-        return
-
-    channel_list = await get_channels()
-
-    if not channel_list:
-
-        await update.message.reply_text(
-            "No active channels found."
-        )
-        return
-
-    text = "<b>📢 Active Channels</b>\n\n"
-
-    for index, channel in enumerate(channel_list, start=1):
-
-        text += f"{index}. {channel}\n"
-
-    text += f"\nTotal: <b>{len(channel_list)}</b>"
-
-    await update.message.reply_text(
-        text,
-        parse_mode=ParseMode.HTML,
-    )
-
-
-# ==========================================================
-# /stats
-# ==========================================================
-
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    if not is_admin(update):
         return
 
     users = await total_users()
+
     channels = await total_channels()
-    posts = await total_posts()
-
-    text = f"""
-📊 <b>AATG BOT STATISTICS</b>
-
-👥 Total Users: <b>{users}</b>
-
-📢 Active Channels: <b>{channels}</b>
-
-📰 Posted News: <b>{posts}</b>
-"""
 
     await update.message.reply_text(
-        text.strip(),
-        parse_mode=ParseMode.HTML,
+
+        f"👥 Users: {users}\n"
+
+        f"📢 Channels: {channels}"
+
     )
