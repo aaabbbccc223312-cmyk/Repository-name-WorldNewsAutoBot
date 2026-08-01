@@ -1,74 +1,62 @@
 from telegram import (
+
     InlineKeyboardButton,
+
     InlineKeyboardMarkup,
+
 )
 
-from database import get_channels
+from config import REQUIRED_CHANNELS
 
 
-async def join_keyboard():
-    """
-    Build a dynamic keyboard from all active channels
-    stored in the database.
-    """
-
-    channels = await get_channels()
+def join_keyboard():
 
     keyboard = []
 
-    for channel in channels:
+    for channel in REQUIRED_CHANNELS:
 
-        username = channel.lstrip("@")
+        username = channel.replace(
+
+            "@",
+
+            "",
+
+        )
 
         keyboard.append(
+
             [
+
                 InlineKeyboardButton(
+
                     text=f"📢 {channel}",
+
                     url=f"https://t.me/{username}",
+
                 )
+
             ]
+
         )
 
     keyboard.append(
+
         [
+
             InlineKeyboardButton(
-                text="✅ I've Joined",
+
+                text="✅ I HAVE JOINED",
+
                 callback_data="verify_join",
+
             )
+
         ]
+
     )
 
-    return InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(
 
+        keyboard
 
-def admin_keyboard():
-    """
-    Optional admin keyboard.
-    """
-
-    keyboard = [
-
-        [
-            InlineKeyboardButton(
-                text="📊 Statistics",
-                callback_data="admin_stats",
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                text="📢 Channels",
-                callback_data="admin_channels",
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                text="📰 Latest News",
-                callback_data="admin_news",
-            )
-        ],
-
-    ]
-
-    return InlineKeyboardMarkup(keyboard)
+    )
