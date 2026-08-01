@@ -1,99 +1,129 @@
 """
 news/router.py
 
-Smart News Router
-
-Features
---------
-✅ Different news for every channel
-✅ No duplicate posts
-✅ Unlimited channels
-✅ Fair article distribution
+Distributes unique news across channels.
 """
 
 import random
 
 from database import (
+
     get_channels,
+
     has_posted,
+
     save_post,
+
 )
 
 
 class NewsRouter:
 
-    def __init__(self):
+    def __init__(
+
+        self,
+
+    ):
+
         pass
 
-    async def distribute(self, articles):
-        """
-        Returns:
-        [
-            (channel, article),
-            (channel, article),
-            ...
-        ]
-        """
+
+    async def distribute(
+
+        self,
+
+        articles,
+
+    ):
 
         channels = await get_channels()
 
-        if not channels or not articles:
+        if not channels:
+
             return []
 
-        # Randomize articles so channels don't always
-        # receive the same order.
-        random.shuffle(articles)
+        if not articles:
+
+            return []
+
+        random.shuffle(
+
+            articles
+
+        )
 
         assignments = []
 
         article_index = 0
-
         for channel in channels:
 
             assigned = False
 
-            while article_index < len(articles):
+            while article_index < len(
 
-                article = articles[article_index]
+                articles
+
+            ):
+
+                article = articles[
+
+                    article_index
+
+                ]
+
                 article_index += 1
 
-                already_posted = await has_posted(
-                    channel,
-                    article["id"],
-                )
+                if await has_posted(
 
-                if already_posted:
+                    channel["username"],
+
+                    article["id"],
+
+                ):
+
                     continue
 
                 assignments.append(
+
                     (
+
                         channel,
+
                         article,
+
                     )
+
                 )
 
                 assigned = True
+
                 break
 
-            # No more fresh articles available
             if not assigned:
+
                 break
 
         return assignments
 
+
     async def mark_posted(
+
         self,
+
         channel,
-        article_id,
+
+        article,
+
     ):
-        """
-        Save successful post so it is never
-        repeated in this channel.
-        """
 
         await save_post(
-            channel,
-            article_id,
+
+            channel["username"],
+
+            article["id"],
+
+            article["title"],
+
         )
 
 
