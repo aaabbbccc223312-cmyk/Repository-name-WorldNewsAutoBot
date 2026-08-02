@@ -43,63 +43,21 @@ async def start(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+    logger.info("========== /START RECEIVED ==========")
 
-    user = update.effective_user
+    try:
 
-    await save_user(user)
+        user = update.effective_user
 
-    joined = await has_joined_all(user.id)
+        logger.info(f"User: {user.id}")
 
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                "🌐 Open Mini App",
-                web_app=WebAppInfo(
-                    url=WEBAPP_URL,
-                ),
-            )
-        ]
-    ]
+        logger.info("Saving user...")
+        await save_user(user)
+        logger.info("User saved.")
 
-    if not joined:
-
-        await update.message.reply_text(
-            WELCOME_TEXT,
-            parse_mode="HTML",
-            reply_markup=join_keyboard(),
-        )
-
-        await update.message.reply_text(
-            "You can also open our Mini App:",
-            reply_markup=InlineKeyboardMarkup(
-                keyboard
-            ),
-        )
-
-        return
-
-    await update.message.reply_text(
-        "✅ Access granted.",
-        reply_markup=InlineKeyboardMarkup(
-            keyboard
-        ),
-    )
-
-
-async def check_join(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    query = update.callback_query
-
-    await query.answer()
-
-    joined = await has_joined_all(
-        query.from_user.id
-    )
-
-    if joined:
+        logger.info("Checking channel membership...")
+        joined = await has_joined_all(user.id)
+        logger.info(f"Membership result: {joined}")
 
         keyboard = InlineKeyboardMarkup(
             [
@@ -114,14 +72,86 @@ async def check_join(
             ]
         )
 
-        await query.edit_message_text(
-            "✅ Verification successful!\n\nOpen the Mini App below.",
+        if not joined:
+
+            logger.info("User has NOT joined all channels.")
+
+            await update.message.reply_text(
+                WELCOME_TEXT,
+                parse_mode="HTML",
+                reply_markup=join_keyboard(),
+            )
+
+            await update.message.reply_text(
+                "You can also open our Mini App.",
+                reply_markup=keyboard,
+            )
+
+            return
+
+        logger.info("User joined all channels.")
+
+        await update.message.reply_text(
+            "✅ Access granted.",
             reply_markup=keyboard,
         )
 
-    else:
+    except Exception:
+        logger.exception("START COMMAND FAILED")
+
+        if update.message:
+            await update.message.reply_text(
+                "⚠️ An internal error occurred. Check Railway logs."
+            )
+
+
+async def check_join(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    query = update.callback_query
+
+    await query.answer()
+
+    try:
+
+        joined = await has_joined_all(
+            query.from_user.id
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🌐 Open Mini App",
+                        web_app=WebAppInfo(
+                            url=WEBAPP_URL,
+                        ),
+                    )
+                ]
+            ]
+        )
+
+        if joined:
+
+            await query.edit_message_text(
+                "✅ Verification successful!\n\nOpen the Mini App below.",
+                reply_markup=keyboard,
+            )
+
+        else:
+
+            await query.answer(
+                "❌ Join all required channels first.",
+                show_alert=True,
+            )
+
+    except Exception:
+
+        logger.exception("VERIFY JOIN FAILED")
 
         await query.answer(
-            "❌ You must join all required channels first.",
+            "An internal error occurred.",
             show_alert=True,
         )
