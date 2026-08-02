@@ -1,270 +1,161 @@
+import asyncio
 import logging
 import os
+import threading
+
+import uvicorn
 
 from telegram.ext import (
-
     Application,
-
     CallbackQueryHandler,
-
     CommandHandler,
-
 )
 
 from config import (
-
     BOT_TOKEN,
-
     LOG_LEVEL,
-
     DEFAULT_CHANNELS,
-
 )
 
 from database import (
-
     init_db,
-
     add_channel,
-
 )
 
 from bot.handlers import (
-
     start,
-
     check_join,
-
 )
 
 from bot.commands import (
-
     addchannel,
-
     removechannel,
-
     pausechannel,
-
     resumechannel,
-
     channels,
-
     stats,
-
 )
 
 from news.scheduler import scheduler
 
+from web import app as web_app
+
 
 logging.basicConfig(
-
-    level=getattr(
-
-        logging,
-
-        LOG_LEVEL,
-
-    ),
-
+    level=getattr(logging, LOG_LEVEL),
     format="%(asctime)s | %(levelname)s | %(message)s",
-
 )
 
-logger = logging.getLogger(
-
-    "AATG"
-
-)
+logger = logging.getLogger("AATG")
 
 
-async def startup(
+async def startup(application: Application):
 
-    app: Application,
-
-):
-
-    os.makedirs(
-
-        "assets",
-
-        exist_ok=True,
-
-    )
-
-    os.makedirs(
-
-        "data",
-
-        exist_ok=True,
-
-    )
+    os.makedirs("assets", exist_ok=True)
+    os.makedirs("data", exist_ok=True)
+    os.makedirs("webapp", exist_ok=True)
 
     await init_db()
 
     for channel in DEFAULT_CHANNELS:
-
-        await add_channel(
-
-            channel
-
-        )
+        await add_channel(channel)
 
     if not scheduler.running:
-
         scheduler.start()
 
-    logger.info(
-
-        "Bot started successfully."
-
-    )
+    logger.info("Bot started successfully.")
 
 
-async def shutdown(
+async def shutdown(application: Application):
 
-    app: Application,
+    if scheduler.running:
+        scheduler.shutdown()
 
-):
+    logger.info("Bot stopped.")
 
-    scheduler.shutdown()
 
-    logger.info(
+def run_web():
 
-        "Bot stopped."
-
+    uvicorn.run(
+        web_app,
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", 8000)),
+        log_level="info",
     )
 
 
 def main():
 
+    threading.Thread(
+        target=run_web,
+        daemon=True,
+    ).start()
+
     application = (
-
         Application.builder()
-
-        .token(
-
-            BOT_TOKEN
-
-        )
-
-        .post_init(
-
-            startup
-
-        )
-
-        .post_shutdown(
-
-            shutdown
-
-        )
-
+        .token(BOT_TOKEN)
+        .post_init(startup)
+        .post_shutdown(shutdown)
         .build()
-
     )
 
     application.add_handler(
-
-        CommandHandler(
-
-            "start",
-
-            start,
-
-        )
-
+        CommandHandler("start", start)
     )
 
     application.add_handler(
-
-        CommandHandler(
-
-            "addchannel",
-
-            addchannel,
-
-        )
-
-    )
-
-    application.add_handler(
-
-        CommandHandler(
-
-            "removechannel",
-
-            removechannel,
-
-        )
-
-    )
-
-    application.add_handler(
-
-        CommandHandler(
-
-            "pausechannel",
-
-            pausechannel,
-
-        )
-
-    )
-
-    application.add_handler(
-
-        CommandHandler(
-
-            "resumechannel",
-
-            resumechannel,
-
-        )
-
-    )
-    application.add_handler(
-
-        CommandHandler(
-
-            "channels",
-
-            channels,
-
-        )
-
-    )
-
-    application.add_handler(
-
-        CommandHandler(
-
-            "stats",
-
-            stats,
-
-        )
-
-    )
-
-    application.add_handler(
-
         CallbackQueryHandler(
-
             check_join,
-
             pattern="^verify_join$",
-
         )
+    )
 
+    application.add_handler(
+        CommandHandler(
+            "addchannel",
+            addchannel,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "removechannel",
+            removechannel,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "pausechannel",
+            pausechannel,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "resumechannel",
+            resumechannel,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "channels",
+            channels,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "stats",
+            stats,
+        )
     )
 
     application.run_polling(
-
         drop_pending_updates=True,
-
     )
 
 
 if __name__ == "__main__":
-
     main()
