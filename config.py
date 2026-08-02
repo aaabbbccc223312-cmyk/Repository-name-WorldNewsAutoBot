@@ -72,7 +72,7 @@ REQUIRED_CHANNELS = [
 ]
 
 # ==========================================================
-# DEFAULT CHANNELS
+# DEFAULT NEWS CHANNELS
 # ==========================================================
 
 DEFAULT_CHANNELS = [
@@ -104,6 +104,10 @@ DEFAULT_CHANNELS = [
 
 ]
 
+# ==========================================================
+# NEWS
+# ==========================================================
+
 NEWS_CHECK_INTERVAL = int(
     os.getenv(
         "NEWS_CHECK_INTERVAL",
@@ -125,6 +129,24 @@ MAX_POSTS_PER_CYCLE = int(
     )
 )
 
+# ==========================================================
+# MINI WEB APP
+# ==========================================================
+
+WEBAPP_URL = os.getenv(
+    "WEBAPP_URL",
+    "",
+)
+
+SECRET_KEY = os.getenv(
+    "SECRET_KEY",
+    "CHANGE_THIS_SECRET_KEY",
+)
+
+# ==========================================================
+# FOLDERS
+# ==========================================================
+
 ASSETS_FOLDER = "assets"
 
 DATA_FOLDER = "data"
@@ -144,6 +166,10 @@ os.makedirs(
     exist_ok=True,
 )
 
+# ==========================================================
+# VALIDATION
+# ==========================================================
+
 if not BOT_TOKEN:
     raise RuntimeError(
         "BOT_TOKEN is missing in your .env file."
@@ -153,6 +179,10 @@ if ADMIN_ID <= 0:
     raise RuntimeError(
         "ADMIN_ID is missing in your .env file."
     )
+
+# ==========================================================
+# EXPORTS
+# ==========================================================
 
 __all__ = [
 
@@ -173,6 +203,10 @@ __all__ = [
     "MAX_ARTICLES_PER_FEED",
 
     "MAX_POSTS_PER_CYCLE",
+
+    "WEBAPP_URL",
+
+    "SECRET_KEY",
 
     "ASSETS_FOLDER",
 
