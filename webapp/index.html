@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
@@ -10,100 +11,231 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>Global News Network</title>
+    <title>
+
+        Global News Network
+
+    </title>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <link
-        rel="stylesheet"
-        href="/static/style.css"
-    >
+    <style>
+
+        *{
+
+            margin:0;
+
+            padding:0;
+
+            box-sizing:border-box;
+
+            font-family:Arial,Helvetica,sans-serif;
+
+        }
+
+        body{
+
+            background:#0f172a;
+
+            color:white;
+
+        }
+
+        .container{
+
+            max-width:420px;
+
+            margin:auto;
+
+            padding:25px;
+
+        }
+
+        .header{
+
+            text-align:center;
+
+            margin-top:20px;
+
+        }
+
+        .logo{
+
+            width:100px;
+
+            height:100px;
+
+            border-radius:50%;
+
+            object-fit:cover;
+
+            margin-bottom:15px;
+
+            border:3px solid #2196F3;
+
+        }
+
+        h1{
+
+            margin-bottom:10px;
+
+        }
+
+        p{
+
+            color:#cbd5e1;
+
+            line-height:1.6;
+
+        }
+
+        .card{
+
+            background:#1e293b;
+
+            border-radius:15px;
+
+            padding:18px;
+
+            margin-top:20px;
+
+        }
+
+        button{
+
+            width:100%;
+
+            margin-top:30px;
+
+            padding:16px;
+
+            border:none;
+
+            border-radius:12px;
+
+            background:#2196F3;
+
+            color:white;
+
+            font-size:18px;
+
+            font-weight:bold;
+
+            cursor:pointer;
+
+        }
+
+    </style>
 
 </head>
 
 <body>
 
-    <div class="container">
+<div class="container">
 
-        <div class="header">
+<div class="header">
 
-            <img
-                src="/static/logo.png"
-                class="logo"
-                alt="Logo"
-            >
+<img
 
-            <h1>
+src="/assets/logo.png"
 
-                Global News Network
+class="logo"
 
-            </h1>
+>
 
-            <p>
+<h1>
 
-                Real-time worldwide news powered by Telegram.
+Global News Network
 
-            </p>
+</h1>
 
-        </div>
+<p>
 
-        <div class="cards">
+Real-time breaking news, sports updates, finance and world events.
 
-            <div class="card">
+</p>
 
-                🌍
+</div>
 
-                <h2>World News</h2>
+<div class="card">
 
-                <p>
+<h2>
 
-                    Latest headlines from around the world.
+🌍 World News
 
-                </p>
+</h2>
 
-            </div>
+<p>
 
-            <div class="card">
+Latest headlines from trusted international news sources.
 
-                ⚽
+</p>
 
-                <h2>Sports</h2>
+</div>
 
-                <p>
+<div class="card">
 
-                    Football, NBA, Tennis and more.
+<h2>
 
-                </p>
+⚽ Sports
 
-            </div>
+</h2>
 
-            <div class="card">
+<p>
 
-                🚨
+Football, NBA, Tennis and more updated automatically.
 
-                <h2>Breaking</h2>
+</p>
 
-                <p>
+</div>
 
-                    Instant breaking news updates.
+<div class="card">
 
-                </p>
+<h2>
 
-            </div>
+🚨 Breaking News
 
-        </div>
+</h2>
 
-        <button
-            id="joinBtn"
-        >
+<p>
 
-            Join Our Channels
+Instant news delivered directly from our Telegram channels.
 
-        </button>
+</p>
 
-    </div>
+</div>
 
-    <script src="/static/app.js"></script>
+<button id="open">
+
+Open Global News
+
+</button>
+
+</div>
+
+<script>
+
+const tg = window.Telegram.WebApp;
+
+tg.ready();
+
+tg.expand();
+
+document
+
+.getElementById("open")
+
+.onclick=function(){
+
+tg.showAlert(
+
+"Welcome to Global News Network!"
+
+);
+
+};
+
+</script>
 
 </body>
 
