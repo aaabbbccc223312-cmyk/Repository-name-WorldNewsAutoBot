@@ -8,10 +8,7 @@ load_dotenv()
 # BOT
 # ==========================================================
 
-BOT_TOKEN = os.getenv(
-    "BOT_TOKEN",
-    "",
-)
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
 ADMIN_ID = int(
     os.getenv(
@@ -39,70 +36,45 @@ LOG_LEVEL = os.getenv(
 ).upper()
 
 # ==========================================================
-# REQUIRED CHANNELS
+# LOAD CHANNELS AUTOMATICALLY
 # ==========================================================
 
-REQUIRED_CHANNELS = [
+def load_channels(prefix: str):
 
-    os.getenv(
-        "REQUIRED_CHANNEL_1",
-        "",
-    ),
+    channels = []
 
-    os.getenv(
-        "REQUIRED_CHANNEL_2",
-        "",
-    ),
+    index = 1
 
-    os.getenv(
-        "REQUIRED_CHANNEL_3",
-        "",
-    ),
+    while True:
 
-]
+        value = os.getenv(
+            f"{prefix}_{index}"
+        )
 
-REQUIRED_CHANNELS = [
+        if value:
 
-    channel
+            value = value.strip()
 
-    for channel in REQUIRED_CHANNELS
+            if value:
 
-    if channel.strip()
+                channels.append(value)
 
-]
+            index += 1
 
-# ==========================================================
-# DEFAULT NEWS CHANNELS
-# ==========================================================
+        else:
 
-DEFAULT_CHANNELS = [
+            break
 
-    os.getenv(
-        "DEFAULT_CHANNEL_1",
-        "",
-    ),
+    return channels
 
-    os.getenv(
-        "DEFAULT_CHANNEL_2",
-        "",
-    ),
 
-    os.getenv(
-        "DEFAULT_CHANNEL_3",
-        "",
-    ),
+REQUIRED_CHANNELS = load_channels(
+    "REQUIRED_CHANNEL"
+)
 
-]
-
-DEFAULT_CHANNELS = [
-
-    channel
-
-    for channel in DEFAULT_CHANNELS
-
-    if channel.strip()
-
-]
+DEFAULT_CHANNELS = load_channels(
+    "DEFAULT_CHANNEL"
+)
 
 # ==========================================================
 # NEWS
@@ -151,11 +123,6 @@ ASSETS_FOLDER = "assets"
 
 DATA_FOLDER = "data"
 
-WELCOME_IMAGE = os.path.join(
-    ASSETS_FOLDER,
-    "welcome.jpg",
-)
-
 os.makedirs(
     ASSETS_FOLDER,
     exist_ok=True,
@@ -172,12 +139,12 @@ os.makedirs(
 
 if not BOT_TOKEN:
     raise RuntimeError(
-        "BOT_TOKEN is missing in your .env file."
+        "BOT_TOKEN is missing in your environment variables."
     )
 
 if ADMIN_ID <= 0:
     raise RuntimeError(
-        "ADMIN_ID is missing in your .env file."
+        "ADMIN_ID is missing in your environment variables."
     )
 
 # ==========================================================
@@ -185,33 +152,17 @@ if ADMIN_ID <= 0:
 # ==========================================================
 
 __all__ = [
-
     "BOT_TOKEN",
-
     "ADMIN_ID",
-
     "DATABASE_PATH",
-
     "LOG_LEVEL",
-
     "REQUIRED_CHANNELS",
-
     "DEFAULT_CHANNELS",
-
     "NEWS_CHECK_INTERVAL",
-
     "MAX_ARTICLES_PER_FEED",
-
     "MAX_POSTS_PER_CYCLE",
-
     "WEBAPP_URL",
-
     "SECRET_KEY",
-
     "ASSETS_FOLDER",
-
     "DATA_FOLDER",
-
-    "WELCOME_IMAGE",
-
 ]
