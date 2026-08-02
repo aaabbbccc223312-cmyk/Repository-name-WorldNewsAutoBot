@@ -4,37 +4,39 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-
 app = FastAPI(
     title="Global News Network",
     version="1.0.0",
 )
 
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
 
-WEBAPP_DIR = "webapp"
+WEBAPP_DIR = os.path.join(
+    BASE_DIR,
+    "webapp",
+)
 
+ASSETS_DIR = os.path.join(
+    BASE_DIR,
+    "assets",
+)
 
 os.makedirs(
     WEBAPP_DIR,
     exist_ok=True,
 )
 
-
-STATIC_DIR = os.path.join(
-    WEBAPP_DIR,
-    "static",
-)
-
 os.makedirs(
-    STATIC_DIR,
+    ASSETS_DIR,
     exist_ok=True,
 )
-
 
 app.mount(
-    "/static",
-    StaticFiles(directory=STATIC_DIR),
-    name="static",
+    "/assets",
+    StaticFiles(directory=ASSETS_DIR),
+    name="assets",
 )
 
 
