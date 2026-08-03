@@ -36,7 +36,7 @@ from bot.commands import (
 )
 
 from news.scheduler import (
-    scheduler,
+    start_scheduler,
     post_news,
 )
 
@@ -74,18 +74,10 @@ async def startup(application: Application):
 
         await add_channel(channel)
 
-    if not scheduler.running:
+    # Start the scheduler and register the news job
+    start_scheduler()
 
-        scheduler.start()
-
-    logger.info(
-        "Scheduler jobs: %s",
-        scheduler.get_jobs(),
-    )
-
-    logger.info(
-        "Running first news check..."
-    )
+    logger.info("Running first news check...")
 
     try:
 
@@ -103,10 +95,6 @@ async def startup(application: Application):
 
 
 async def shutdown(application: Application):
-
-    if scheduler.running:
-
-        scheduler.shutdown()
 
     logger.info(
         "Bot stopped."
