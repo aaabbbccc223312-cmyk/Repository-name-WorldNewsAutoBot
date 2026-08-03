@@ -1,71 +1,104 @@
 """
-news/formatter.py
+news/router.py
 
-Formats news into beautiful Telegram posts.
+Routes news articles to the correct Telegram channels.
 """
 
-import html
+import logging
+
+from database import (
+    get_channels,
+    has_posted,
+    save_post,
+)
+
+logger = logging.getLogger(__name__)
 
 
-class NewsFormatter:
+class NewsRouter:
 
-    def format(self, article):
+    async def distribute(self, articles):
 
-        title = html.escape(
-            article.get(
-                "title",
-                "Untitled",
+        channels = await get_channels()
+
+        if not channels:
+
+            logger.warning(
+                "No channels configured."
             )
-        )
 
-        summary = html.escape(
-            article.get(
-                "summary",
-                "",
+            return []
+
+        assignments = []
+
+        for article in articles:
+
+            article_category = (
+                article.get(
+                    "category",
+                    "world",
+                )
+                .lower()
+                .strip()
             )
+
+            matched = False
+
+            for channel in channels:
+
+                channel_category = (
+                    channel["category"]
+                    or "world"
+                ).lower().strip()
+
+                if channel_category != article_category:
+                    continue
+
+                already_posted = await has_posted(
+                    channel["username"],
+                    article["id"],
+                )
+
+                if already_posted:
+                    continue
+
+                assignments.append(
+                    (
+                        channel,
+                        article,
+                    )
+                )
+
+                matched = True
+
+                break
+
+            if not matched:
+
+                logger.debug(
+                    "No channel found for '%s' (%s)",
+                    article["title"],
+                    article_category,
+                )
+
+        logger.info(
+            "Prepared %s assignments.",
+            len(assignments),
         )
 
-        source = html.escape(
-            article.get(
-                "source",
-                "News",
-            )
+        return assignments
+
+    async def mark_posted(
+        self,
+        channel,
+        article,
+    ):
+
+        await save_post(
+            channel["username"],
+            article["id"],
+            article["title"],
         )
 
-        link = article.get(
-            "link",
-            "",
-        )
 
-        category = article.get(
-            "category",
-            "world",
-        ).lower()
-
-        emojis = {
-            "world": "🌍",
-            "sports": "⚽",
-            "business": "💼",
-            "technology": "💻",
-            "trading": "📈",
-        }
-
-        emoji = emojis.get(
-            category,
-            "📰",
-        )
-
-        if len(summary) > 300:
-            summary = summary[:297] + "..."
-
-        text = (
-            f"{emoji} <b>{title}</b>\n\n"
-            f"{summary}\n\n"
-            f"📰 <b>Source:</b> {source}\n"
-            f"🔗 <a href=\"{link}\">Read Full Story</a>"
-        )
-
-        return text
-
-
-formatter = NewsFormatter()
+router = NewsRouter()
