@@ -1,129 +1,133 @@
 """
 news/router.py
 
-Distributes unique news across channels.
+Routes articles to channels based on category.
 """
 
-import random
-
 from database import (
-
     get_channels,
-
     has_posted,
-
     save_post,
-
 )
 
 
 class NewsRouter:
 
-    def __init__(
-
-        self,
-
-    ):
-
+    def __init__(self):
         pass
 
+    def detect_category(self, article):
 
-    async def distribute(
+        text = (
+            f"{article.get('title', '')} "
+            f"{article.get('summary', '')}"
+        ).lower()
 
-        self,
+        if any(word in text for word in [
+            "forex",
+            "trading",
+            "market",
+            "stocks",
+            "shares",
+            "invest",
+            "bitcoin",
+            "ethereum",
+            "crypto",
+            "gold",
+            "oil",
+            "nasdaq",
+            "dow",
+            "fed",
+            "interest rate",
+        ]):
+            return "trading"
 
-        articles,
+        if any(word in text for word in [
+            "football",
+            "soccer",
+            "premier league",
+            "champions league",
+            "nba",
+            "tennis",
+            "formula 1",
+            "cricket",
+        ]):
+            return "sports"
 
-    ):
+        if any(word in text for word in [
+            "business",
+            "economy",
+            "company",
+            "bank",
+            "finance",
+            "inflation",
+            "earnings",
+        ]):
+            return "business"
+
+        if any(word in text for word in [
+            "ai",
+            "technology",
+            "apple",
+            "google",
+            "microsoft",
+            "android",
+            "iphone",
+            "openai",
+        ]):
+            return "technology"
+
+        return "world"
+
+    async def distribute(self, articles):
 
         channels = await get_channels()
 
-        if not channels:
-
+        if not channels or not articles:
             return []
-
-        if not articles:
-
-            return []
-
-        random.shuffle(
-
-            articles
-
-        )
 
         assignments = []
 
-        article_index = 0
-        for channel in channels:
+        for article in articles:
 
-            assigned = False
+            category = self.detect_category(article)
 
-            while article_index < len(
+            for channel in channels:
 
-                articles
+                channel_category = (
+                    channel["category"] or "world"
+                ).lower()
 
-            ):
-
-                article = articles[
-
-                    article_index
-
-                ]
-
-                article_index += 1
+                if channel_category != category:
+                    continue
 
                 if await has_posted(
-
                     channel["username"],
-
                     article["id"],
-
                 ):
-
                     continue
 
                 assignments.append(
-
                     (
-
                         channel,
-
                         article,
-
                     )
-
                 )
-
-                assigned = True
-
-                break
-
-            if not assigned:
 
                 break
 
         return assignments
 
-
     async def mark_posted(
-
         self,
-
         channel,
-
         article,
-
     ):
 
         await save_post(
-
             channel["username"],
-
             article["id"],
-
             article["title"],
-
         )
 
 
