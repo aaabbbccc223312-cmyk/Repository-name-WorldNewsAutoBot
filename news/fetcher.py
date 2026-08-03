@@ -1,29 +1,54 @@
 """
 news/fetcher.py
 
-Fetches news from RSS feeds.
+Smart RSS Fetcher
 """
 
 import hashlib
+import logging
 
 import feedparser
-
 from bs4 import BeautifulSoup
 
+logger = logging.getLogger(__name__)
 
-RSS_FEEDS = [
 
-    "https://feeds.bbci.co.uk/news/rss.xml",
+RSS_FEEDS = {
 
-    "https://feeds.bbci.co.uk/sport/rss.xml",
+    "world": [
 
-    "https://www.espn.com/espn/rss/news",
+        "https://feeds.bbci.co.uk/news/rss.xml",
+        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
 
-    "https://www.skysports.com/rss/12040",
+    ],
 
-    "https://www.goal.com/feeds/en/news",
+    "sports": [
 
-]
+        "https://feeds.bbci.co.uk/sport/rss.xml",
+        "https://www.espn.com/espn/rss/news",
+
+    ],
+
+    "business": [
+
+        "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+
+    ],
+
+    "technology": [
+
+        "https://feeds.arstechnica.com/arstechnica/index",
+
+    ],
+
+    "trading": [
+
+        "https://www.forexlive.com/feed/",
+        "https://www.coindesk.com/arc/outboundfeeds/rss/",
+
+    ],
+
+}
 
 
 class NewsFetcher:
@@ -32,67 +57,32 @@ class NewsFetcher:
 
         self.cache = set()
 
+    def clean(self, text):
 
-    def clean(
-
-        self,
-
-        text,
-
-    ):
-
-        soup = BeautifulSoup(
-
+        return BeautifulSoup(
             text,
-
             "html.parser",
-
-        )
-
-        return soup.get_text(
-
+        ).get_text(
             " ",
-
             strip=True,
-
         )
 
-
-    def article_id(
-
-        self,
-
-        link,
-
-    ):
+    def article_id(self, link):
 
         return hashlib.md5(
-
             link.encode()
-
         ).hexdigest()
-    def image(
 
-        self,
-
-        entry,
-
-    ):
+    def image(self, entry):
 
         if "media_content" in entry:
-
             media = entry.media_content
-
             if media:
-
                 return media[0].get("url")
 
         if "media_thumbnail" in entry:
-
             thumb = entry.media_thumbnail
-
             if thumb:
-
                 return thumb[0].get("url")
 
         if "links" in entry:
@@ -100,250 +90,93 @@ class NewsFetcher:
             for link in entry.links:
 
                 if link.get(
-
                     "type",
-
                     "",
-
                 ).startswith("image"):
 
                     return link.get("href")
 
         return None
 
+    def fetch(self):
 
-    def fetch(
+        articles = []
 
-        self,
+        for category, feeds in RSS_FEEDS.items():
 
-    ):
+            for feed in feeds:
 
-        news = []
+                try:
 
-        for feed in RSS_FEEDS:
+                    rss = feedparser.parse(feed)
 
-            try:
+                    for entry in rss.entries:
 
-                rss = feedparser.parse(
+                        title = self.clean(
+                            entry.get(
+                                "title",
+                                "",
+                            )
+                        )
 
-                    feed
-
-                )
-
-                for entry in rss.entries:
-
-                    title = self.clean(
-
-                        entry.get(
-
-                            "title",
-
+                        link = entry.get(
+                            "link",
                             "",
+                        )
+
+                        if not title or not link:
+                            continue
+
+                        article_id = self.article_id(link)
+
+                        if article_id in self.cache:
+                            continue
+
+                        self.cache.add(article_id)
+
+                        articles.append(
+
+                            {
+
+                                "id": article_id,
+
+                                "category": category,
+
+                                "title": title,
+
+                                "summary": self.clean(
+                                    entry.get(
+                                        "summary",
+                                        "",
+                                    )
+                                ),
+
+                                "link": link,
+
+                                "image": self.image(entry),
+
+                                "source": rss.feed.get(
+                                    "title",
+                                    "News",
+                                ),
+
+                            }
 
                         )
 
+                except Exception as e:
+
+                    logger.warning(
+                        "RSS failed: %s",
+                        feed,
                     )
 
-                    link = entry.get(
+        logger.info(
+            "Fetched %s articles",
+            len(articles),
+        )
 
-                        "link",
-
-                        "",
-
-                    )
-
-                    if not title:
-
-                        continue
-
-                    if not link:
-
-                        continue
-
-                    article = self.article_id(
-
-                        link
-
-                    )
-
-                    if article in self.cache:
-
-                        continue
-
-                    self.cache.add(
-
-                        article
-
-                    )
-                    news.append(
-
-                        {
-
-                            "id": article,
-
-                            "title": title,
-
-                            "summary": self.clean(
-
-                                entry.get(
-
-                                    "summary",
-
-                                    "",
-
-                                )
-
-                            ),
-
-                            "link": link,
-
-                            "image": self.image(
-
-                                entry
-
-                            ),
-
-                            "source": rss.feed.get(
-
-                                "title",
-
-                                "News",
-
-                            ),
-
-                        }
-
-                    )
-
-            except Exception:
-
-                continue
-
-        return news
+        return articles
 
 
 fetcher = NewsFetcher()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
