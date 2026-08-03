@@ -1,22 +1,25 @@
+"""
+bot/handlers.py
+
+Main bot handlers.
+"""
+
 import logging
 
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    WebAppInfo,
     Update,
+    WebAppInfo,
 )
 
 from telegram.ext import ContextTypes
 
-from config import (
-    WEBAPP_URL,
-)
+from config import WEBAPP_URL
 
 from database import save_user
 
 from bot.membership import has_joined_all
-
 from bot.keyboards import join_keyboard
 
 
@@ -24,84 +27,95 @@ logger = logging.getLogger(__name__)
 
 
 WELCOME_TEXT = """
-🌍 <b>Welcome to Global News Network</b>
+🌍 <b>Welcome to AATG Global News</b>
 
-Get real-time news from around the world.
+Stay ahead with real-time updates from trusted sources.
 
-✅ Breaking News
+📰 Breaking News
+🌍 World News
 ⚽ Sports
-💹 Business
-🌎 World Headlines
+💼 Business
+💻 Technology
+📈 Trading & Crypto
 
-Join all required channels to continue.
+━━━━━━━━━━━━━━━━━━
 
-Or open the Mini App below.
+<b>Before continuing, please join all required channels.</b>
+
+Once you've joined, tap:
+
+<b>✅ I've Joined</b>
+
+to unlock the Mini App.
 """
+
+
+def mini_app_keyboard():
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    text="🚀 Open Mini App",
+                    web_app=WebAppInfo(
+                        url=WEBAPP_URL
+                    ),
+                )
+            ]
+        ]
+    )
 
 
 async def start(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    logger.info("========== /START RECEIVED ==========")
 
     try:
 
         user = update.effective_user
 
-        logger.info(f"User: {user.id}")
+        logger.info(
+            "Start command from %s",
+            user.id,
+        )
 
-        logger.info("Saving user...")
         await save_user(user)
-        logger.info("User saved.")
 
-        logger.info("Checking channel membership...")
-        joined = await has_joined_all(user.id)
-        logger.info(f"Membership result: {joined}")
-
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🌐 Open Mini App",
-                        web_app=WebAppInfo(
-                            url=WEBAPP_URL,
-                        ),
-                    )
-                ]
-            ]
+        joined = await has_joined_all(
+            user.id
         )
 
         if not joined:
 
-            logger.info("User has NOT joined all channels.")
-
             await update.message.reply_text(
-                WELCOME_TEXT,
+                text=WELCOME_TEXT,
                 parse_mode="HTML",
                 reply_markup=join_keyboard(),
             )
 
-            await update.message.reply_text(
-                "You can also open our Mini App.",
-                reply_markup=keyboard,
-            )
-
             return
 
-        logger.info("User joined all channels.")
-
         await update.message.reply_text(
-            "✅ Access granted.",
-            reply_markup=keyboard,
+            text=(
+                "🎉 <b>Access Granted!</b>\n\n"
+                "Welcome to AATG.\n\n"
+                "Tap below to open the Mini App."
+            ),
+            parse_mode="HTML",
+            reply_markup=mini_app_keyboard(),
         )
 
     except Exception:
-        logger.exception("START COMMAND FAILED")
+
+        logger.exception(
+            "START ERROR"
+        )
 
         if update.message:
+
             await update.message.reply_text(
-                "⚠️ An internal error occurred. Check Railway logs."
+                "⚠️ Something went wrong.\nPlease try again."
             )
 
 
@@ -120,38 +134,32 @@ async def check_join(
             query.from_user.id
         )
 
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🌐 Open Mini App",
-                        web_app=WebAppInfo(
-                            url=WEBAPP_URL,
-                        ),
-                    )
-                ]
-            ]
-        )
-
         if joined:
 
             await query.edit_message_text(
-                "✅ Verification successful!\n\nOpen the Mini App below.",
-                reply_markup=keyboard,
+                text=(
+                    "✅ <b>Verification Successful!</b>\n\n"
+                    "You now have access to AATG.\n\n"
+                    "Open the Mini App below."
+                ),
+                parse_mode="HTML",
+                reply_markup=mini_app_keyboard(),
             )
 
         else:
 
             await query.answer(
-                "❌ Join all required channels first.",
+                "❌ Please join every required channel first.",
                 show_alert=True,
             )
 
     except Exception:
 
-        logger.exception("VERIFY JOIN FAILED")
+        logger.exception(
+            "VERIFY ERROR"
+        )
 
         await query.answer(
-            "An internal error occurred.",
+            "⚠️ Verification failed.",
             show_alert=True,
         )
