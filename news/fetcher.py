@@ -1,251 +1,263 @@
 """
 news/fetcher.py
 
-Fast, reliable RSS fetcher with duplicate protection.
+Professional RSS Fetcher
 """
 
 import hashlib
 import logging
-import time
-from concurrent.futures import ThreadPoolExecutor
+from collections import deque
 
 import feedparser
+import requests
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (NewsBot)"
+}
+
 RSS_FEEDS = {
+
     "world": [
+
         "https://feeds.bbci.co.uk/news/rss.xml",
         "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+
     ],
+
     "sports": [
+
         "https://feeds.bbci.co.uk/sport/rss.xml",
         "https://www.espn.com/espn/rss/news",
+
     ],
+
     "business": [
+
         "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+
     ],
+
     "technology": [
+
         "https://feeds.arstechnica.com/arstechnica/index",
+
     ],
+
     "trading": [
+
         "https://www.forexlive.com/feed/",
         "https://www.coindesk.com/arc/outboundfeeds/rss/",
+
     ],
+
 }
 
 
 class NewsFetcher:
 
     def __init__(self):
-        self.cache = {}
-        self.cache_expire = 86400
+
+        self.cache = set()
+
+        self.cache_queue = deque()
+
+        self.max_cache = 5000
 
     def clean(self, text):
 
         if not text:
             return ""
 
-        try:
-            return BeautifulSoup(
-                str(text),
-                "html.parser",
-            ).get_text(
-                " ",
-                strip=True,
-            )
-        except Exception:
-            return str(text)
+        return BeautifulSoup(
+            text,
+            "html.parser",
+        ).get_text(
+            " ",
+            strip=True,
+        )
 
     def article_id(self, link):
 
-        return hashlib.sha256(
-            link.encode("utf-8")
+        return hashlib.md5(
+            link.encode(
+                "utf-8",
+            )
         ).hexdigest()
 
-    def image(self, entry):
+    def trim_cache(self):
+
+        while len(self.cache_queue) > self.max_cache:
+
+            old = self.cache_queue.popleft()
+
+            self.cache.discard(old)
+
+    def extract_image(self, entry):
+
+        if getattr(entry, "media_content", None):
+
+            media = entry.media_content
+
+            if media:
+
+                url = media[0].get("url")
+
+                if url:
+                    return url
+
+        if getattr(entry, "media_thumbnail", None):
+
+            thumb = entry.media_thumbnail
+
+            if thumb:
+
+                url = thumb[0].get("url")
+
+                if url:
+                    return url
+
+        if getattr(entry, "enclosures", None):
+
+            for enc in entry.enclosures:
+
+                if enc.get("type", "").startswith("image"):
+
+                    return enc.get("href")
 
         try:
 
-            if hasattr(entry, "media_content"):
-                media = entry.media_content
-                if media:
-                    return media[0].get("url")
+            response = requests.get(
+                entry.link,
+                timeout=8,
+                headers=HEADERS,
+            )
 
-            if hasattr(entry, "media_thumbnail"):
-                media = entry.media_thumbnail
-                if media:
-                    return media[0].get("url")
+            soup = BeautifulSoup(
+                response.text,
+                "html.parser",
+            )
 
-            if hasattr(entry, "links"):
+            og = soup.find(
+                "meta",
+                property="og:image",
+            )
 
-                for item in entry.links:
+            if og:
 
-                    if item.get(
-                        "type",
-                        "",
-                    ).startswith("image"):
+                image = og.get("content")
 
-                        return item.get("href")
+                if image:
+                    return image
 
-            if "summary" in entry:
+            img = soup.find("img")
 
-                soup = BeautifulSoup(
-                    entry.summary,
-                    "html.parser",
-                )
+            if img:
 
-                img = soup.find("img")
+                src = img.get("src")
 
-                if img:
-                    return img.get("src")
+                if src:
+                    return src
 
         except Exception:
+
             pass
 
         return None
 
-    def fetch_feed(self, category, url):
+    def fetch(self):
 
         articles = []
 
-        try:
+        seen_links = set()
 
-            rss = feedparser.parse(url)
+        for category, feeds in RSS_FEEDS.items():
 
-            if rss.bozo:
-                logger.warning(
-                    "RSS warning: %s",
-                    url,
-                )
+            for feed in feeds:
 
-            source = rss.feed.get(
-                "title",
-                category.title(),
-            )
+                try:
 
-            for entry in rss.entries:
+                    rss = feedparser.parse(feed)
 
-                title = self.clean(
-                    entry.get(
-                        "title",
-                        "",
-                    )
-                )
+                    if rss.bozo:
 
-                link = entry.get(
-                    "link",
-                    "",
-                )
+                        logger.warning(
+                            "Invalid RSS: %s",
+                            feed,
+                        )
 
-                if not title or not link:
-                    continue
+                    for entry in rss.entries:
 
-                article_id = self.article_id(
-                    link
-                )
+                        title = self.clean(
+                            entry.get(
+                                "title",
+                                "",
+                            )
+                        )
 
-                if article_id in self.cache:
-                    continue
+                        if len(title) < 8:
+                            continue
 
-                self.cache[
-                    article_id
-                ] = time.time()
+                        link = entry.get(
+                            "link",
+                            "",
+                        )
 
-                articles.append(
-                    {
-                        "id": article_id,
-                        "category": category,
-                        "title": title,
-                        "summary": self.clean(
+                        if not link:
+                            continue
+
+                        if link in seen_links:
+                            continue
+
+                        seen_links.add(link)
+
+                        article_id = self.article_id(link)
+
+                        if article_id in self.cache:
+                            continue
+
+                        self.cache.add(article_id)
+
+                        self.cache_queue.append(article_id)
+
+                        summary = self.clean(
                             entry.get(
                                 "summary",
                                 "",
                             )
-                        ),
-                        "link": link,
-                        "image": self.image(
-                            entry
-                        ),
-                        "source": source,
-                    }
-                )
-
-        except Exception:
-
-            logger.exception(
-                "Failed RSS: %s",
-                url,
-            )
-
-        return articles
-
-    def cleanup_cache(self):
-
-        now = time.time()
-
-        expired = [
-            key
-            for key, value in self.cache.items()
-            if now - value > self.cache_expire
-        ]
-
-        for key in expired:
-            del self.cache[key]
-
-    def fetch(self):
-
-        self.cleanup_cache()
-
-        articles = []
-
-        futures = []
-
-        with ThreadPoolExecutor(
-            max_workers=8
-        ) as executor:
-
-            for category, feeds in RSS_FEEDS.items():
-
-                for url in feeds:
-
-                    futures.append(
-                        executor.submit(
-                            self.fetch_feed,
-                            category,
-                            url,
                         )
-                    )
 
-            for future in futures:
+                        articles.append({
 
-                try:
+                            "id": article_id,
 
-                    articles.extend(
-                        future.result()
-                    )
+                            "category": category,
 
-                except Exception:
+                            "title": title,
+
+                            "summary": summary,
+
+                            "link": link,
+
+                            "image": self.extract_image(entry),
+
+                            "source": rss.feed.get(
+                                "title",
+                                "News",
+                            ),
+
+                        })
+
+                except Exception as e:
 
                     logger.exception(
-                        "Worker failed."
+                        "RSS failed: %s",
+                        feed,
                     )
 
-        unique = {}
-
-        for article in articles:
-            unique[
-                article["id"]
-            ] = article
-
-        articles = list(
-            unique.values()
-        )
-
-        articles.sort(
-            key=lambda x: x["title"]
-        )
+        self.trim_cache()
 
         logger.info(
             "Fetched %s unique articles.",
