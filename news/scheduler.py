@@ -1,66 +1,111 @@
 """
 news/scheduler.py
 
-Automatically fetches and posts news.
+Category-aware news scheduler.
 """
+
+import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from config import NEWS_CHECK_INTERVAL
+
 from news.fetcher import fetcher
-
 from news.formatter import formatter
-
 from news.router import router
-
 from news.sender import sender
 
+logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
 
 async def post_news():
 
-    articles = fetcher.fetch()
+    logger.info("Checking RSS feeds...")
 
-    assignments = await router.distribute(
+    try:
 
-        articles
+        articles = fetcher.fetch()
 
-    )
+    except Exception:
+
+        logger.exception("Failed to fetch RSS feeds.")
+
+        return
+
+    if not articles:
+
+        logger.info("No new articles found.")
+
+        return
+
+    try:
+
+        assignments = await router.distribute(
+            articles
+        )
+
+    except Exception:
+
+        logger.exception("Router failed.")
+
+        return
+
+    if not assignments:
+
+        logger.info("Nothing to post.")
+
+        return
+
+    total = 0
 
     for channel, article in assignments:
 
-        caption = formatter.format(
+        try:
 
-            article
+            caption = formatter.format(
+                article
+            )
 
-        )
+            await sender.send(
+                channel,
+                article,
+                caption,
+            )
 
-        await sender.send(
+            await router.mark_posted(
+                channel,
+                article,
+            )
 
-            channel,
+            total += 1
 
-            article,
+            logger.info(
+                "Posted '%s' -> %s",
+                article.get("title", "Untitled"),
+                channel,
+            )
 
-            caption,
+        except Exception:
 
-        )
+            logger.exception(
+                "Failed posting to %s",
+                channel,
+            )
 
-        await router.mark_posted(
-
-            channel,
-
-            article,
-
-        )
+    logger.info(
+        "Finished posting %s article(s).",
+        total,
+    )
 
 
 scheduler.add_job(
-
     post_news,
-
-    "interval",
-
-    minutes=5,
-
+    trigger="interval",
+    seconds=NEWS_CHECK_INTERVAL,
+    id="post_news",
+    replace_existing=True,
+    max_instances=1,
+    coalesce=True,
 )
