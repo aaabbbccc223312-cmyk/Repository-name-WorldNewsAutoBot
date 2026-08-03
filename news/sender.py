@@ -1,75 +1,99 @@
 """
 news/sender.py
 
-Sends news to Telegram channels.
+Professional Telegram Sender
 """
 
-from telegram import Bot
+import logging
 
+from telegram import Bot
 from telegram.constants import ParseMode
+from telegram.error import TelegramError
 
 from config import BOT_TOKEN
+
+logger = logging.getLogger(__name__)
 
 
 class NewsSender:
 
-    def __init__(
+    def __init__(self):
 
-        self,
-
-    ):
-
-        self.bot = Bot(
-
-            BOT_TOKEN
-
-        )
-
+        self.bot = Bot(BOT_TOKEN)
 
     async def send(
-
         self,
-
         channel,
-
         article,
-
         caption,
-
     ):
 
-        image = article.get(
+        image = article.get("image")
 
-            "image",
+        try:
 
-        )
-        if image:
+            if image:
 
-            await self.bot.send_photo(
+                await self.bot.send_photo(
+                    chat_id=channel["username"],
+                    photo=image,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                )
 
-                chat_id=channel["username"],
+                logger.info(
+                    "Photo sent -> %s",
+                    channel["username"],
+                )
 
-                photo=image,
+            else:
 
-                caption=caption,
+                await self.bot.send_message(
+                    chat_id=channel["username"],
+                    text=caption,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=False,
+                )
 
-                parse_mode=ParseMode.HTML,
+                logger.info(
+                    "Message sent -> %s",
+                    channel["username"],
+                )
 
+        except TelegramError as e:
+
+            logger.error(
+                "Telegram error for %s: %s",
+                channel["username"],
+                e,
             )
 
-        else:
+            # If sending a photo fails,
+            # try sending the text version.
 
-            await self.bot.send_message(
+            if image:
 
-                chat_id=channel["username"],
+                try:
 
-                text=caption,
+                    await self.bot.send_message(
+                        chat_id=channel["username"],
+                        text=caption,
+                        parse_mode=ParseMode.HTML,
+                        disable_web_page_preview=False,
+                    )
 
-                parse_mode=ParseMode.HTML,
+                    logger.info(
+                        "Fallback message sent -> %s",
+                        channel["username"],
+                    )
 
-                disable_web_page_preview=False,
+                except Exception as ex:
 
-            )
+                    logger.exception(ex)
+
+        except Exception as e:
+
+            logger.exception(e)
 
 
 sender = NewsSender()
