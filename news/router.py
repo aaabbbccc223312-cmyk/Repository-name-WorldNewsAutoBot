@@ -1,8 +1,10 @@
 """
 news/router.py
 
-Routes articles to channels based on category.
+Routes news articles to the correct Telegram channels.
 """
+
+import logging
 
 from database import (
     get_channels,
@@ -10,101 +12,50 @@ from database import (
     save_post,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class NewsRouter:
-
-    def __init__(self):
-        pass
-
-    def detect_category(self, article):
-
-        text = (
-            f"{article.get('title', '')} "
-            f"{article.get('summary', '')}"
-        ).lower()
-
-        if any(word in text for word in [
-            "forex",
-            "trading",
-            "market",
-            "stocks",
-            "shares",
-            "invest",
-            "bitcoin",
-            "ethereum",
-            "crypto",
-            "gold",
-            "oil",
-            "nasdaq",
-            "dow",
-            "fed",
-            "interest rate",
-        ]):
-            return "trading"
-
-        if any(word in text for word in [
-            "football",
-            "soccer",
-            "premier league",
-            "champions league",
-            "nba",
-            "tennis",
-            "formula 1",
-            "cricket",
-        ]):
-            return "sports"
-
-        if any(word in text for word in [
-            "business",
-            "economy",
-            "company",
-            "bank",
-            "finance",
-            "inflation",
-            "earnings",
-        ]):
-            return "business"
-
-        if any(word in text for word in [
-            "ai",
-            "technology",
-            "apple",
-            "google",
-            "microsoft",
-            "android",
-            "iphone",
-            "openai",
-        ]):
-            return "technology"
-
-        return "world"
 
     async def distribute(self, articles):
 
         channels = await get_channels()
 
-        if not channels or not articles:
+        if not channels:
+            logger.warning("No channels configured.")
             return []
 
         assignments = []
 
         for article in articles:
 
-            category = self.detect_category(article)
+            category = (
+                article.get(
+                    "category",
+                    "world",
+                )
+                .lower()
+                .strip()
+            )
+
+            matched = False
 
             for channel in channels:
 
                 channel_category = (
-                    channel["category"] or "world"
-                ).lower()
+                    channel["category"]
+                    or "world"
+                ).lower().strip()
 
                 if channel_category != category:
                     continue
 
-                if await has_posted(
+                already_posted = await has_posted(
                     channel["username"],
                     article["id"],
-                ):
+                )
+
+                if already_posted:
                     continue
 
                 assignments.append(
@@ -114,7 +65,20 @@ class NewsRouter:
                     )
                 )
 
+                matched = True
                 break
+
+            if not matched:
+                logger.debug(
+                    "No channel available for '%s' (%s)",
+                    article["title"],
+                    category,
+                )
+
+        logger.info(
+            "Prepared %s post assignment(s).",
+            len(assignments),
+        )
 
         return assignments
 
