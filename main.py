@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 import threading
@@ -36,7 +35,10 @@ from bot.commands import (
     stats,
 )
 
-from news.scheduler import scheduler
+from news.scheduler import (
+    scheduler,
+    post_news,
+)
 
 from web import app as web_app
 
@@ -51,27 +53,64 @@ logger = logging.getLogger("AATG")
 
 async def startup(application: Application):
 
-    os.makedirs("assets", exist_ok=True)
-    os.makedirs("data", exist_ok=True)
-    os.makedirs("webapp", exist_ok=True)
+    os.makedirs(
+        "assets",
+        exist_ok=True,
+    )
+
+    os.makedirs(
+        "data",
+        exist_ok=True,
+    )
+
+    os.makedirs(
+        "webapp",
+        exist_ok=True,
+    )
 
     await init_db()
 
     for channel in DEFAULT_CHANNELS:
+
         await add_channel(channel)
 
     if not scheduler.running:
+
         scheduler.start()
 
-    logger.info("Bot started successfully.")
+    logger.info(
+        "Scheduler jobs: %s",
+        scheduler.get_jobs(),
+    )
+
+    logger.info(
+        "Running first news check..."
+    )
+
+    try:
+
+        await post_news()
+
+    except Exception:
+
+        logger.exception(
+            "First news check failed."
+        )
+
+    logger.info(
+        "Bot started successfully."
+    )
 
 
 async def shutdown(application: Application):
 
     if scheduler.running:
+
         scheduler.shutdown()
 
-    logger.info("Bot stopped.")
+    logger.info(
+        "Bot stopped."
+    )
 
 
 def run_web():
@@ -79,7 +118,12 @@ def run_web():
     uvicorn.run(
         web_app,
         host="0.0.0.0",
-        port=int(os.getenv("PORT", 8000)),
+        port=int(
+            os.getenv(
+                "PORT",
+                8000,
+            )
+        ),
         log_level="info",
     )
 
@@ -100,7 +144,10 @@ def main():
     )
 
     application.add_handler(
-        CommandHandler("start", start)
+        CommandHandler(
+            "start",
+            start,
+        )
     )
 
     application.add_handler(
@@ -158,4 +205,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
