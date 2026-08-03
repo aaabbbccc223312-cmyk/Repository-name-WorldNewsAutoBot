@@ -1,7 +1,7 @@
 """
 news/formatter.py
 
-Formats articles for Telegram.
+Professional Telegram Formatter
 """
 
 from datetime import datetime
@@ -11,96 +11,86 @@ class Formatter:
 
     def __init__(self):
 
-        pass
+        self.hashtags = {
 
+            "world": "#WorldNews 🌍",
 
-    def clean(
+            "breaking": "#BreakingNews 🚨",
 
-        self,
+            "sports": "#Sports ⚽",
 
-        text,
+            "business": "#Business 💼",
 
-    ):
+            "technology": "#Technology 💻",
+
+            "crypto": "#Crypto ₿",
+
+            "trading": "#Trading 📈",
+
+            "entertainment": "#Entertainment 🎬",
+
+        }
+
+    def clean(self, text):
 
         if not text:
-
             return ""
 
-        return " ".join(
+        return " ".join(text.split())
 
-            text.split()
+    def shorten(self, text, limit=350):
 
-        )
+        text = self.clean(text)
 
+        if len(text) <= limit:
+            return text
 
-    def format(
+        return text[:limit].rstrip() + "..."
 
-        self,
-
-        article,
-
-    ):
+    def format(self, article):
 
         title = self.clean(
-
-            article.get(
-
-                "title",
-
-                "",
-
-            )
-
+            article.get("title", "")
         )
 
-        summary = self.clean(
-
-            article.get(
-
-                "summary",
-
-                "",
-
-            )
-
+        summary = self.shorten(
+            article.get("summary", "")
         )
+
         source = article.get(
-
             "source",
-
-            "News",
-
+            "Global News",
         )
 
         link = article.get(
-
             "link",
-
             "",
-
         )
 
-        now = datetime.utcnow().strftime(
+        category = article.get(
+            "category",
+            "world",
+        ).lower()
 
+        hashtag = self.hashtags.get(
+            category,
+            "#News",
+        )
+
+        date = datetime.utcnow().strftime(
             "%d %b %Y"
-
         )
 
-        text = (
-
+        return (
             f"📰 <b>{title}</b>\n\n"
-
             f"{summary}\n\n"
-
-            f"🌍 <b>Source:</b> {source}\n"
-
-            f"📅 <b>Date:</b> {now}\n\n"
-
-            f"🔗 {link}"
-
+            f"{hashtag}\n\n"
+            f"🌐 <b>Source:</b> {source}\n"
+            f"📅 <b>Date:</b> {date}\n\n"
+            f"👉 <a href=\"{link}\">Read Full Story</a>\n\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"🌍 <b>Global News Network</b>"
         )
-
-        return text
 
 
 formatter = Formatter()
