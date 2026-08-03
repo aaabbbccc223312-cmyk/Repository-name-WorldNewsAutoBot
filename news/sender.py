@@ -30,6 +30,7 @@ class NewsSender:
     ):
 
         image = article.get("image")
+        chat_id = channel["username"]
 
         while True:
 
@@ -38,7 +39,7 @@ class NewsSender:
                 if image:
 
                     await self.bot.send_photo(
-                        chat_id=channel["username"],
+                        chat_id=chat_id,
                         photo=image,
                         caption=caption,
                         parse_mode=ParseMode.HTML,
@@ -46,13 +47,13 @@ class NewsSender:
 
                     logger.info(
                         "Photo sent -> %s",
-                        channel["username"],
+                        chat_id,
                     )
 
                 else:
 
                     await self.bot.send_message(
-                        chat_id=channel["username"],
+                        chat_id=chat_id,
                         text=caption,
                         parse_mode=ParseMode.HTML,
                         disable_web_page_preview=False,
@@ -60,10 +61,12 @@ class NewsSender:
 
                     logger.info(
                         "Message sent -> %s",
-                        channel["username"],
+                        chat_id,
                     )
 
-                # Success
+                # Small delay to reduce flood limits
+                await asyncio.sleep(2)
+
                 return
 
             except RetryAfter as e:
@@ -71,7 +74,8 @@ class NewsSender:
                 wait = int(e.retry_after)
 
                 logger.warning(
-                    "Flood control. Waiting %s seconds...",
+                    "Flood control for %s. Waiting %s seconds...",
+                    chat_id,
                     wait,
                 )
 
@@ -83,16 +87,17 @@ class NewsSender:
 
                 logger.error(
                     "Telegram error for %s: %s",
-                    channel["username"],
+                    chat_id,
                     e,
                 )
 
+                # If photo failed, try text only
                 if image:
 
                     try:
 
                         await self.bot.send_message(
-                            chat_id=channel["username"],
+                            chat_id=chat_id,
                             text=caption,
                             parse_mode=ParseMode.HTML,
                             disable_web_page_preview=False,
@@ -100,15 +105,18 @@ class NewsSender:
 
                         logger.info(
                             "Fallback message sent -> %s",
-                            channel["username"],
+                            chat_id,
                         )
+
+                        await asyncio.sleep(2)
 
                     except RetryAfter as ex:
 
                         wait = int(ex.retry_after)
 
                         logger.warning(
-                            "Flood control on fallback. Waiting %s seconds...",
+                            "Flood control during fallback for %s. Waiting %s seconds...",
+                            chat_id,
                             wait,
                         )
 
@@ -119,7 +127,8 @@ class NewsSender:
                     except Exception:
 
                         logger.exception(
-                            "Fallback send failed."
+                            "Fallback message failed for %s",
+                            chat_id,
                         )
 
                 return
@@ -127,7 +136,8 @@ class NewsSender:
             except Exception:
 
                 logger.exception(
-                    "Unexpected sender error."
+                    "Unexpected sender error for %s",
+                    chat_id,
                 )
 
                 return
