@@ -4,11 +4,12 @@ news/sender.py
 Professional Telegram Sender
 """
 
+import asyncio
 import logging
 
 from telegram import Bot
 from telegram.constants import ParseMode
-from telegram.error import TelegramError
+from telegram.error import RetryAfter, TelegramError
 
 from config import BOT_TOKEN
 
@@ -30,50 +31,25 @@ class NewsSender:
 
         image = article.get("image")
 
-        try:
+        while True:
 
-            if image:
+            try:
 
-                await self.bot.send_photo(
-                    chat_id=channel["username"],
-                    photo=image,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
-                )
+                if image:
 
-                logger.info(
-                    "Photo sent -> %s",
-                    channel["username"],
-                )
+                    await self.bot.send_photo(
+                        chat_id=channel["username"],
+                        photo=image,
+                        caption=caption,
+                        parse_mode=ParseMode.HTML,
+                    )
 
-            else:
+                    logger.info(
+                        "Photo sent -> %s",
+                        channel["username"],
+                    )
 
-                await self.bot.send_message(
-                    chat_id=channel["username"],
-                    text=caption,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=False,
-                )
-
-                logger.info(
-                    "Message sent -> %s",
-                    channel["username"],
-                )
-
-        except TelegramError as e:
-
-            logger.error(
-                "Telegram error for %s: %s",
-                channel["username"],
-                e,
-            )
-
-            # If sending a photo fails,
-            # try sending the text version.
-
-            if image:
-
-                try:
+                else:
 
                     await self.bot.send_message(
                         chat_id=channel["username"],
@@ -83,17 +59,78 @@ class NewsSender:
                     )
 
                     logger.info(
-                        "Fallback message sent -> %s",
+                        "Message sent -> %s",
                         channel["username"],
                     )
 
-                except Exception as ex:
+                # Success
+                return
 
-                    logger.exception(ex)
+            except RetryAfter as e:
 
-        except Exception as e:
+                wait = int(e.retry_after)
 
-            logger.exception(e)
+                logger.warning(
+                    "Flood control. Waiting %s seconds...",
+                    wait,
+                )
+
+                await asyncio.sleep(wait + 1)
+
+                continue
+
+            except TelegramError as e:
+
+                logger.error(
+                    "Telegram error for %s: %s",
+                    channel["username"],
+                    e,
+                )
+
+                if image:
+
+                    try:
+
+                        await self.bot.send_message(
+                            chat_id=channel["username"],
+                            text=caption,
+                            parse_mode=ParseMode.HTML,
+                            disable_web_page_preview=False,
+                        )
+
+                        logger.info(
+                            "Fallback message sent -> %s",
+                            channel["username"],
+                        )
+
+                    except RetryAfter as ex:
+
+                        wait = int(ex.retry_after)
+
+                        logger.warning(
+                            "Flood control on fallback. Waiting %s seconds...",
+                            wait,
+                        )
+
+                        await asyncio.sleep(wait + 1)
+
+                        continue
+
+                    except Exception:
+
+                        logger.exception(
+                            "Fallback send failed."
+                        )
+
+                return
+
+            except Exception:
+
+                logger.exception(
+                    "Unexpected sender error."
+                )
+
+                return
 
 
 sender = NewsSender()
