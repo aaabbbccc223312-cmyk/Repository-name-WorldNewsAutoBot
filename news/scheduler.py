@@ -1,7 +1,13 @@
 """
 news/scheduler.py
 
-Professional queued news scheduler.
+Reliable automatic news scheduler.
+
+- Checks RSS feeds automatically.
+- Posts new articles to the configured channels.
+- Prevents overlapping posting cycles.
+- Runs an immediate check when the scheduler starts.
+- Continues checking at NEWS_CHECK_INTERVAL.
 """
 
 import asyncio
@@ -19,172 +25,228 @@ from news.formatter import formatter
 from news.router import router
 from news.sender import sender
 
+
 logger = logging.getLogger(__name__)
+
 
 scheduler = AsyncIOScheduler()
 
+_job_lock = asyncio.Lock()
+
 
 async def post_news():
+    """
+    Fetch and publish available news.
+    """
 
-    logger.info("=" * 60)
-    logger.info("Checking RSS feeds...")
-
-    try:
-
-        articles = fetcher.fetch()
-
-    except Exception:
-
-        logger.exception(
-            "RSS fetch failed."
-        )
-
-        return
-
-    logger.info(
-        "Fetched %s article(s).",
-        len(articles),
-    )
-
-    if not articles:
+    # Prevent two posting cycles from running together.
+    if _job_lock.locked():
 
         logger.info(
-            "No articles available."
+            "A news cycle is already running. Skipping this cycle."
         )
 
         return
 
-    try:
+    async with _job_lock:
 
-        assignments = await router.distribute(
-            articles
-        )
+        logger.info("=" * 60)
+        logger.info("Starting news check...")
+        logger.info("=" * 60)
 
-    except Exception:
-
-        logger.exception(
-            "Router failed."
-        )
-
-        return
-
-    logger.info(
-        "Queue contains %s post(s).",
-        len(assignments),
-    )
-
-    if not assignments:
-
-        logger.info(
-            "Nothing to send."
-        )
-
-        return
-
-    posted = 0
-
-    skipped = 0
-
-    failed = 0
-
-    for channel, article in assignments:
-
-        if posted >= MAX_POSTS_PER_CYCLE:
-
-            logger.info(
-                "Reached cycle limit (%s posts).",
-                MAX_POSTS_PER_CYCLE,
-            )
-
-            break
+        # --------------------------------------------------
+        # FETCH NEWS
+        # --------------------------------------------------
 
         try:
 
-            caption = formatter.format(
-                article
-            )
+            logger.info("Checking RSS feeds...")
 
-            await sender.send(
-                channel,
-                article,
-                caption,
-            )
-
-            await router.mark_posted(
-                channel,
-                article,
-            )
-
-            posted += 1
-
-            logger.info(
-                "[%s/%s] Posted '%s' -> %s",
-                posted,
-                MAX_POSTS_PER_CYCLE,
-                article.get(
-                    "title",
-                    "Untitled",
-                ),
-                channel["username"],
-            )
-
-            #
-            # Wait between posts.
-            # Prevents Telegram FloodWait.
-            #
-            await asyncio.sleep(3)
+            articles = fetcher.fetch()
 
         except Exception:
 
-            failed += 1
-
             logger.exception(
-                "Failed posting '%s' -> %s",
-                article.get(
-                    "title",
-                    "Untitled",
-                ),
-                channel["username"],
+                "RSS fetch failed."
             )
 
-            #
-            # Small pause before continuing.
-            #
-            await asyncio.sleep(2)
+            return
 
-    logger.info("=" * 60)
+        logger.info(
+            "Fetched %s unique article(s).",
+            len(articles),
+        )
 
-    logger.info(
-        "Cycle complete."
-    )
+        if not articles:
 
-    logger.info(
-        "Posted : %s",
-        posted,
-    )
+            logger.info(
+                "No articles available from RSS feeds."
+            )
 
-    logger.info(
-        "Failed : %s",
-        failed,
-    )
+            return
 
-    logger.info(
-        "Skipped: %s",
-        skipped,
-    )
+        # --------------------------------------------------
+        # DISTRIBUTE NEWS
+        # --------------------------------------------------
 
-    logger.info("=" * 60)
+        try:
+
+            assignments = await router.distribute(
+                articles
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Router failed."
+            )
+
+            return
+
+        logger.info(
+            "Prepared %s assignment(s).",
+            len(assignments),
+        )
+
+        if not assignments:
+
+            logger.info(
+                "No new assignments available."
+            )
+
+            return
+
+        # --------------------------------------------------
+        # POST NEWS
+        # --------------------------------------------------
+
+        posted = 0
+        failed = 0
+
+        for channel, article in assignments:
+
+            # Respect cycle limit.
+            if posted >= MAX_POSTS_PER_CYCLE:
+
+                logger.info(
+                    "Reached cycle limit (%s posts).",
+                    MAX_POSTS_PER_CYCLE,
+                )
+
+                break
+
+            title = article.get(
+                "title",
+                "Untitled",
+            )
+
+            username = channel.get(
+                "username",
+                "unknown",
+            )
+
+            try:
+
+                logger.info(
+                    "Preparing post [%s/%s] -> %s",
+                    posted + 1,
+                    MAX_POSTS_PER_CYCLE,
+                    username,
+                )
+
+                caption = formatter.format(
+                    article
+                )
+
+                await sender.send(
+                    channel,
+                    article,
+                    caption,
+                )
+
+                # Mark only after Telegram confirms
+                # that the message was sent.
+                await router.mark_posted(
+                    channel,
+                    article,
+                )
+
+                posted += 1
+
+                logger.info(
+                    "[%s/%s] Posted '%s' -> %s",
+                    posted,
+                    MAX_POSTS_PER_CYCLE,
+                    title,
+                    username,
+                )
+
+                # Protect against Telegram rate limits.
+                await asyncio.sleep(3)
+
+            except Exception:
+
+                failed += 1
+
+                logger.exception(
+                    "Failed posting '%s' -> %s",
+                    title,
+                    username,
+                )
+
+                # Continue with the next assignment.
+                await asyncio.sleep(2)
+
+        # --------------------------------------------------
+        # CYCLE SUMMARY
+        # --------------------------------------------------
+
+        logger.info("=" * 60)
+        logger.info("News cycle complete.")
+        logger.info("Posted : %s", posted)
+        logger.info("Failed : %s", failed)
+        logger.info(
+            "Remaining assignments: %s",
+            max(
+                0,
+                len(assignments) - posted,
+            ),
+        )
+        logger.info("=" * 60)
 
 
 def start_scheduler():
+    """
+    Start the automatic news scheduler.
+    """
 
     if scheduler.running:
 
         logger.info(
-            "Scheduler already running."
+            "News scheduler is already running."
         )
 
         return
+
+    # Make sure the interval is valid.
+    interval = int(
+        NEWS_CHECK_INTERVAL
+    )
+
+    if interval < 30:
+
+        logger.warning(
+            "NEWS_CHECK_INTERVAL=%s is too low. "
+            "Using 30 seconds instead.",
+            interval,
+        )
+
+        interval = 30
+
+    logger.info(
+        "Automatic news check interval: %s seconds.",
+        interval,
+    )
 
     scheduler.add_job(
 
@@ -192,7 +254,7 @@ def start_scheduler():
 
         trigger="interval",
 
-        seconds=NEWS_CHECK_INTERVAL,
+        seconds=interval,
 
         id="news_scheduler",
 
@@ -209,5 +271,11 @@ def start_scheduler():
     scheduler.start()
 
     logger.info(
-        "News scheduler started."
+        "News scheduler started successfully."
+    )
+
+    logger.info(
+        "Next automatic news check will occur "
+        "in approximately %s seconds.",
+        interval,
     )
